@@ -1,4 +1,5 @@
-# code available from https://rdrr.io/cran/stR/src/R/lsmr.R#sym-lsmr
+# code available from https://rdrr.io/cran/stR/src/R/lsmr.R#sym-lsmr (using their source code!!!)
+
 # Manually translated from a publicly available Matlab code:
 # https://au.mathworks.com/matlabcentral/fileexchange/27183-lsmr--an-iterative-algorithm-for-least-squares-problems
 lsmr <- function(
