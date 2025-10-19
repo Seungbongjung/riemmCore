@@ -39,6 +39,13 @@ det.proj=function(Sigma,Sigma.inv,V){
   
 }
 
+det.chol.proj=function(L,L.inv,V){
+  
+  p=ncol(L)
+  return(V-sum(diag(L.inv%*%V))*diag(diag(L))/p)
+
+}
+
 sq.mat=function(mat){
   return(mat%*%t(mat))
 }
@@ -69,14 +76,14 @@ spd.geodesic=function(Sigma,V){
   return(Sigma.root%*%as.matrix(expm::expm(Sigma.inv.root%*%V%*%Sigma.inv.root))%*%Sigma.root)
 }
 
-chol.exp=function(L,V){
+chol.geodesic=function(L,V){
   
   ###### Compute an exponential map emanating from L in the direction of V under Cholesky metric
   
   L.diag=diag(L); V.diag=diag(V)
   L.lower=L; L.lower[upper.tri(L.lower,diag=TRUE)]=0
   V.lower=V; V.lower[upper.tri(V.lower,diag=TRUE)]=0
-  return(L.lower+V.lower+L.diag%*%exp(V.diag/L.diag))
+  return(L.lower+V.lower+diag(L.diag*exp(V.diag/L.diag)))
 }
 
 mat2array=function(mat,p1){
@@ -138,25 +145,6 @@ pt.mat=function(mat,MARGIN,p1,p2){
   return(temp)
 }
 
-det.proj=function(Sigma,V,metric="AI"){
-  
-  ###### Compute the orthogonal projection of symmetric matrix onto the tangent space of submanifold of PD cone with unit determinant
-  ###### Argument
-  ## Sigma: a covariance matrix
-  ## V: a asymmetric matrix (tangent vector)
-  ## metric: should be either affine-invariant (AI) or log-Cholesky (LC)
-  
-  if(metric!="AI" && metric!="LC"){
-    stop(message("metric should be either affine-invariant (AI) or log-Cholesky (LC)."))
-  }
-  
-  p=ncol(Sigma)
-  if(metric=="AI"){
-    return(V-sum(diag(solve(Sigma)%*%V))*Sigma/p) 
-  }else{
-    return()
-  }
-}
 
 core.tangent.proj=function(mat,p1,p2){
   
@@ -212,6 +200,14 @@ sym2chol=function(V){
   V.diag=diag(V)
   V.lower=V; V.lower[upper.tri(V)]=0
   return(V.lower-diag(V.diag)/2)
+  
+}
+
+mat2lower=function(V){
+  
+  ##### Lower-Trianugularization of a square matrix
+  V.lower=V; V.lower[upper.tri(V)]=0
+  return(V.lower)
   
 }
 
