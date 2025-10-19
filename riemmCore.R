@@ -1,166 +1,216 @@
-########### Libraries
+################## Utensils
 
-library(RSpectra)
-library(covKCD)
-library(pracma)
-library(matrixcalc)
-library(expm)
-library(MASS)
+source("utensils.R")
 
-########### Utensils
-
-array.cov=function(dat){
+optim.K1=function(dat,K1,K1.inv,K2.inv,A,lambda){
   
-  dat.dim=dim(dat); n=dat.dim[1]; p1=dat.dim[2]; p2=dat.dim[3]; p=p1*p2
+  p1=nrow(K1.inv); p2=nrow(K2.inv); p=p1*p2 
+  n=dim(dat)[1]
+  r=ncol(A)
   
-  S=matrix(0,p,p)
+  A.svd=svd(A,r)
+  U=A.svd$u
+  d=A.svd$d
+  alpha=d^2/((1-lambda)*d^2+lambda)
+  
+  anc.array=apply(aperm(dat,c(2,3,1)),3,FUN=function(X){K1.inv%*%X%*%t(K2.inv)})
+  anc.array=aperm(array(anc.array,dim=c(p1,p2,n)),c(3,1,2))
+  anc.array.sq=array.sq(anc.array)
+  
+  euclid.deriv=matrix(0,p1,p1)
   for(i in 1:n){
-    S=S+as.numeric(dat[i,,])%*%t(as.numeric(dat[i,,]))/n
+    temp=anc.array.sq[i,,]
+    
+    euclid.deriv=-2/(n*lambda)*sym.mat(temp%*%K1.inv)
+    for(j in 1:r){
+      temp2=anc.array[i,,]%*%t(matrix(U[,j],p1,p2))
+      euclid.deriv=euclid.deriv+2*(1-lambda)/(n*lambda)*alpha[j]*sum(diag(temp2))*sym.mat(temp2%*%K1.inv)
+    }
   }
-  return(S)
-}
-
-skew=function(A){
-  return((A-t(A))/2)
-}
-
-sym=function(A){
-  return((A+t(A))/2)
-}
-
-
-sym.root=function(Sigma){
   
-  Sigma.eig=eigen(Sigma)
-  Q=Sigma.eig$vectors; D=Sigma.eig$values
-  return(Q%*%diag(sqrt(D))%*%t(Q))
+  grad=K1%*%euclid.deriv%*%K1
+  grad=det.proj(K1,K1.inv,grad)
+  grad=grad[lower.tri(grad,diag=TRUE)]
   
-}
-
-sym.inv.root=function(Sigma){
-  
-  Sigma.eig=eigen(Sigma)
-  Q=Sigma.eig$vectors; D=Sigma.eig$values
-  return(Q%*%diag(1/sqrt(D))%*%t(Q))
-  
-}
-
-vec2array=function(v,p1,p2,r){
-
-  p=p1*p2
-  A=array(0,dim=c(r,p1,p2))
-  for(i in 1:r){
-    A[i,,]=matrix(v[((i-1)*p+1):(i*p)],nrow=p1,ncol=p2)
+  coeff=NULL
+  for(j in 1:p1){
+    for(i in j:p1){
+      basis=matrix(0,p1,p1)
+      if(i==j){
+        basis[i,j]=1
+      }else{
+        basis[i,j]=basis[j,i]=1
+      }
+      basis=det.proj(K1,K1.inv,basis)
+      hess=matrix(0,p1,p1)
+      
+      for(k in 1:n){
+        temp=anc.array.sq[k,,]
+        hess=hess+2/(n*lambda)*(sym.mat(K1.inv%*%basis%*%temp%*%K1.inv)+sym.mat(temp%*%t(basis)%*%t(K1.inv)%*%K1.inv)+
+                                  sym.mat(temp%*%K1.inv%*%basis%*%K1.inv))
+        for(l in 1:r){
+          temp2=anc.array[k,,]%*%t(matrix(U[,l],p1,p2))
+          hess=hess-2*(1-lambda)/(n*lambda)*alpha[l]*sum(diag(K1.inv%*%basis%*%temp2))*sym.mat(temp2%*%K1.inv)-2*(1-lambda)/(lambda*n)*alpha[l]*sum(diag(temp2))*(sym.mat(K1.inv%*%basis%*%temp2%*%K1.inv)+sym.mat(temp2%*%K1.inv%*%basis%*%K1.inv))
+        }
+      }
+      temp=basis%*%euclid.deriv%*%K1/2+K1%*%euclid.deriv%*%basis/2+K1%*%hess%*%K1
+      temp=det.proj(K1,K1.inv,temp)
+      temp=temp[lower.tri(temp,diag=TRUE)]
+      coeff=cbind(coeff,temp)
+    }
   }
+  
+  v=-lsmr(coeff,grad)$x
+  V=matrix(0,p1,p1)
+  V[lower.tri(V,diag=TRUE)]=v; V=V+t(V)-diag(diag(V))
+  K1=spd.geodesic(K1,det.proj(K1,K1.inv,V))
+  
+  return(K1)
+  
+}
+
+optim.K2=function(dat,K1.inv,K2,K2.inv,A,lambda){
+  
+  p1=nrow(K1.inv); p2=nrow(K2.inv); p=p1*p2 
+  n=dim(dat)[1]
+  r=ncol(A)
+  
+  A.svd=svd(A,r)
+  U=A.svd$u
+  d=A.svd$d
+  alpha=d^2/((1-lambda)*d^2+lambda)
+  
+  anc.array=apply(aperm(dat,c(2,3,1)),3,FUN=function(X){K1.inv%*%X%*%t(K2.inv)})
+  anc.array=array(anc.array,dim=c(p1,p2,n))
+  anc.array=aperm(array(apply(anc.array,3,FUN=t),dim=c(p2,p1,n)),c(3,1,2))
+  anc.array.sq=array.sq(anc.array)
+  
+  euclid.deriv=matrix(0,p2,p2)
+  for(i in 1:n){
+    temp=anc.array.sq[i,,]
+    euclid.deriv=-2/(n*lambda)*sym.mat(temp%*%K2.inv)
+    for(j in 1:r){
+      temp2=anc.array[i,,]%*%matrix(U[,j],p1,p2)
+      euclid.deriv=euclid.deriv+2*(1-lambda)/(n*lambda)*alpha[j]*sum(diag(temp2))*sym.mat(temp2%*%K2.inv)
+    }
+  }
+  grad=K2%*%euclid.deriv%*%K2
+  grad=det.proj(K2,K2.inv,grad)
+  grad=grad[lower.tri(grad,diag=TRUE)]
+  
+  
+  coeff=NULL
+  for(j in 1:p2){
+    for(i in j:p2){
+      basis=matrix(0,p2,p2)
+      if(i==j){
+        basis[i,j]=1
+      }else{
+        basis[i,j]=basis[j,i]=1
+      }
+      basis=det.proj(K2,K2.inv,basis)
+      hess=matrix(0,p2,p2)
+      
+      for(k in 1:n){
+        temp=anc.array.sq[k,,]
+        hess=hess+2/(n*lambda)*(sym.mat(K2.inv%*%basis%*%temp%*%K2.inv)+sym.mat(temp%*%t(basis)%*%t(K2.inv)%*%K2.inv)+
+                                  sym.mat(temp%*%K2.inv%*%basis%*%K2.inv))
+        for(l in 1:r){
+          temp2=anc.array[k,,]%*%matrix(U[,l],p1,p2)
+          hess=hess-2*(1-lambda)/(lambda*n)*alpha[l]*sum(diag(temp2))*(sym.mat(K2.inv%*%basis%*%temp2%*%K2.inv)+sym.mat(temp2%*%K2.inv%*%basis%*%K2.inv))-
+            2*(1-lambda)/(n*lambda)*alpha[l]*sum(diag(K2.inv%*%basis%*%temp2))*sym.mat(temp2%*%K2.inv)
+        }
+      }
+      temp=basis%*%euclid.deriv%*%K2/2+K2%*%euclid.deriv%*%basis/2+K2%*%hess%*%K2
+      temp=det.proj(K2,K2.inv,temp)
+      temp=temp[lower.tri(temp,diag=TRUE)]
+      coeff=cbind(coeff,temp)
+    }
+  }
+  
+  v=-lsmr(coeff,grad)$x
+  V=matrix(0,p2,p2)
+  V[lower.tri(V,diag=TRUE)]=v; V=V+t(V)-diag(diag(V))
+  K2=spd.geodesic(K2,det.proj(K2,K2.inv,V))
+  
+  return(K2)
+  
+}
+
+
+optim.A=function(S,K1.inv,K2.inv,nu,A,lambda){
+  
+  K.inv=kronecker(K2.inv,K1.inv)/nu
+  
+  p1=ncol(K1.inv); p2=ncol(K2.inv); p=p1*p2
+  r=ncol(A)
+  
+  A.svd=svd(A,r)
+  U=A.svd$u
+  d=A.svd$d
+  alpha=d^2/((1-lambda)*d^2+lambda)
+  
+  S.whit=K.inv%*%S%*%t(K.inv)
+  C.inv=diag(p)/lambda-(1-lambda)/lambda*U%*%diag(alpha)%*%t(U)
+  
+  euclid.deriv=-2*(1-lambda)*C.inv%*%S.whit%*%C.inv%*%A+2*(1-lambda)*C.inv%*%A
+  J=J.mat(A,p1)
+  J.ginv=pinv(J)
+  proj.J=J.ginv%*%J
+  proj.null=diag(p*r)-proj.J
+  euclid.deriv=as.numeric(euclid.deriv)
+  
+  grad=euclid.deriv-proj.J%*%euclid.deriv
+  
+  coeff=NULL
+  anc.mat1=C.inv%*%S.whit%*%C.inv
+  
+  euclid.hess.ftn=function(i){
+    basis=matrix(proj.null[,i],p,r)
+    anc.mat2=C.inv%*%(A%*%t(basis)+basis%*%t(A))
+    euclid.hess=-2*(1-lambda)*anc.mat1%*%basis+2*(1-lambda)*C.inv%*%basis+
+      2*(1-lambda)^2*C.inv%*%(A%*%t(basis)+basis%*%t(A))%*%anc.mat1%*%A+
+      2*(1-lambda)^2*C.inv%*%S.whit%*%anc.mat2%*%C.inv%*%A-
+      2*(1-lambda)^2*anc.mat2%*%C.inv%*%A
+    J.basis=J.mat(basis,p1)
+    temp1=as.numeric(euclid.hess)
+    temp2=as.numeric((J.ginv%*%J.basis%*%proj.null+proj.null%*%t(J.basis)%*%t(J.ginv))%*%euclid.deriv)
+    return(temp1-temp2)
+  }
+  
+  coeff=mclapply(X=1:(p*r),FUN=euclid.hess.ftn,mc.cores=max(1,detectCores()-1))
+  coeff=proj.null%*%do.call(cbind,coeff)
+  
+  v=-lsmr(coeff,grad)$x
+  v=v-proj.J%*%v
+  V=matrix(v,p,r)
+  M=A%*%t(V)+V%*%t(A)
+  M=A%*%t(A)+M
+  M=eigs_sym(M,r)
+  A=M$vectors%*%diag(sqrt(M$values+1e-03))
+  A.kcd=covKCD(A%*%t(A),p1,p2)
+  A=kronecker(sym.inv.root(A.kcd$K2),sym.inv.root(A.kcd$K1))%*%A
   
   return(A)
-
-}
-
-vec2mat=function(v,r){
-  
-  p=length(v)/r 
   
 }
 
-array2mat=function(A){
+optim.nu=function(S,K1.inv,K2.inv,A,lambda){
   
-  A.dim=dim(A); r=A.dim[1]; p1=A.dim[2]; p2=A.dim[3]; p=p1*p2
+  K.inv=kronecker(K2.inv,K1.inv)
   
+  p1=ncol(K1.inv); p2=ncol(K2.inv); p=p1*p2
+  r=ncol(A)
   
-}
-
-core.tangent=function(A){
+  A.svd=svd(A)
+  U=A.svd$u
+  d=A.svd$d
+  alpha=d^2/((1-lambda)*d^2+lambda)
   
-  A.dim=dim(A); r=A.dim[1]; p1=A.dim[2]; p2=A.dim[3]; p=p1*p2
+  S.whit=K.inv%*%S%*%t(K.inv); R=t(U)%*%S.whit%*%U
   
-  commute1=commutation.matrix(p1,p1)
-  commute2=commutation.matrix(p2,p2)
-
-  a=NULL
-  for(i in 1:r){
-    a=c(a,as.numeric(A[i,,]))
-  }
-  
-  A.R=matrix(aperm(A,perm=c(2,3,1)),nrow=p1,ncol=p2*r)
-  A.C=matrix(aperm(A,perm=c(3,2,1)),nrow=p2,ncol=p1*r)
-  
-  J1=kronecker(A.R,diag(p1)); J1=(diag(p1^2)+commute1)%*%J1/p-2/(p*p1)*as.numeric(diag(p1))%*%t(a)
-  J2=NULL
-  for(i in 1:r){
-    J2=cbind(J2,kronecker(diag(p2),t(A[i,,])))
-  }
-  
-  J2=(diag(p2^2)+commute2)%*%J2/p-2/(p*p2)*as.numeric(diag(p2))%*%t(a)
-  J3=2*t(a)
-
-  return(null(rbind(J1,J2,J3)))
-}
-
-A=matrix(rnorm(40),ncol=4)
-S=A%*%t(A); S.kcd=covKCD(S,5,2)
-K1.inv=sym.inv.root(S.kcd$K1)
-K2.inv=sym.inv.root(S.kcd$K2)
-A.array=array(0,dim=c(4,5,2))
-for(i in 1:4){
-  A.array[i,,]=K1.inv%*%matrix(A[,i],5,2)%*%K2.inv
-}
-S=matrix(0,10,4)
-for(i in 1:4){
-  S[,i]=as.numeric(A.array[i,,])
-}
-N=core.tangent(A.array)
-b=matrix(rnorm(40))
-V=N%*%t(N)%*%b
-V=matrix(V,ncol=4)
-M=S+V
-M=M%*%t(M)
-M.kcd=covKCD(M,5,2)
-covKCD(S%*%t(S),5,2)
-covKCD(M%*%t(M),5,2)
-
-core.hessian=function(A){
-  
-}
-
-core.retract=function(A,euclid.deriv,metric){
-  
-  A.dim=dim(A); r=dim(A)[1]; p1=dim(A)[2]; p2=dim(A)[3]
-  
-  A.mat=array2mat(A)
-  
-  v=-ginv(M%*%t(N))%*%N%*%t(N)%*%euclid.deriv
-
-  V.mat=vec2mat(v,r)
-  M=A.mat+V.mat; M=M%*%t(M)
-  M.kcd=covKCD(M,p1,p2)
-  
-  if(metric=="AI"){
-    K1.inv=sym.inv.root(M.kcd$K1); K2.inv=sym.inv.root(M.kcd$K2)
-  }else{
-    K1.chol=t(chol(M.kcd$K1)); K2.chol=t(chol(M.kcd$K2))
-    K1.inv=backsolve(K1.chol,diag(ncol(p1)),upper.tri=FALSE)
-    K2.inv=backsolve(K2.chol,diag(ncol(p2)),upper.tri=FALSE)
-  }
-  
-}
-
-
-ai.geod=function(Omega,V){
-  
-  Omega.root=sym.root(Omega) 
-  Omega.inv.root=sym.inv.root(Omega)
-  return(Omega.root%*%as.matrix(expm::expm(Omega.inv.root%*%V%*%Omega.inv.root))%*%Omega.root)
-  
-}
-
-lc.geod=function(L,V){
-  
-  L.diag=diag(L)
-  L.lower=L-diag(L.diag)
-  V.diag=diag(V)
-  V.lower=V-diag(V.diag)
-  return(L.lower+V.lower+diag(L.diag)%*%diag(exp(V.diag/L.diag)))
+  nu=sqrt((sum(diag(S.whit))/lambda-(1-lambda)/lambda*sum(diag(R)*alpha))/p)
+  return(nu)
   
 }
 
@@ -168,200 +218,104 @@ optim.lambda=function(S,K1.inv,K2.inv,nu,A){
   
   K.inv=kronecker(K2.inv,K1.inv)/nu
   S.whit=K.inv%*%S%*%t(K.inv)
-  
-  p=ncol(S); r=ncol(A)
-  
-  A.svd=svd(A)
-  d=A.svd$d; u=A.svd$u
-  
-  obj=function(lambda){
-    R=t(u)%*%S.whit%*%u
-    return(sum(diag(S.whit))/lambda-(1-lambda)/lambda*sum((diag(R)*d^2)/((1-lambda)*d^2+lambda))
-           +(p-r)*log(lambda)+sum(log((1-lambda)*d^2+lambda)))
-  }
-  
-  lambda.optim=optimize(obj,interval=c(1e-3,1))
-  
-  return(list(lambda=lambda.optim$optimum,optim=(lambda.optim$value+2*p*log(nu))))
-  
-}
-
-optim.K1=function(S,K1,K1.inv,K2.inv,lambda,A,metric){
-  
-  p1=ncol(K1); p=ncol(S); r=ncol(A)
-  
-  K.inv=kronecker(K2.inv,K1.inv)
-  S.whit=K.inv%*%S%*%t(K.inv)
-  
-  A.svd=svd(A)
-  u=A.svd$u; d=A.svd$d
-  A.sq_inv=(1-lambda)/lambda*u%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(u)
-  
-  if(metric=="AI"){
-    
-    K1.euclid=matrix(0,p1,p1)
-    
-    K1.hess=matrix(0,p1^2,choose(p1+1,2))
-    
-    
-  }else{
-    
-  }
-  
-  return(K1)
-}
-
-optim.K2=function(S,K1.inv,K2,K2.inv,lambda,A,metric){
-  
-  p2=ncol(K2); p=ncol(S); r=ncol(A)
-  
-  K.inv=kronecker(K2.inv,K1.inv)
-  S.whit=K.inv%*%S%*%t(K.inv)
-  
-  A.svd=svd(A)
-  u=A.svd$u; d=A.svd$d
-  A.sq_inv=(1-lambda)/lambda*u%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(u)
-  
-  if(metric=="AI"){
-    
-  }else{
-    
-  }
-  
-  return(K2)
-  
-}
-
-optim.nu=function(S,K1.inv,K2.inv,lambda,A){
-  
-  p=ncol(S)
-  
-  K.inv=kronecker(K2.inv,K1.inv)
-  S.whit=K.inv%*%S%*%t(K.inv)
-  
-  A.svd=svd(A)
-  u=A.svd$u; d=A.svd$d
-  A.sq_inv=(1-lambda)/lambda*u%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(u)
-  
-  return(sqrt(sum(diag(S.whit)/lambda-diag(S.whit%*%A.sq_inv))/p))
-  
-}
-
-optim.A=function(S,K1.inv,K2.inv,A,nu,lambda){
-  
   p=nrow(A); r=ncol(A)
-  p1=ncol(K1.inv); p2=ncol(K2.inv)
-  
-  K.inv=kronecker(K2.inv,K1.inv)/nu
-  S.whit=K.inv%*%S%*%t(K.inv)
-  
   A.svd=svd(A)
-  u=A.svd$u; d=A.svd$d
-  A.sq_inv=diag(p)/lambda-(1-lambda)/lambda*u%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(u)
-  A.euclid=-2*(1-lambda)*A.sq_inv%*%S.whit%*%t(A.sq_inv)%*%A+2*(1-lambda)%*%A.sq_inv%*%A
+  U=A.svd$u
+  d=A.svd$d
+  R=t(U)%*%S.whit%*%U
   
-  anc.mat1=A.sq_inv%*%S.whit%*%A.sq_inv
-  anc.mat2=t(A)%*%A.sq_inv%*%A
-  anc.mat3=A.sq_inv%*%A
-  
-  N=core.tangent(A)
-  A.hess=2*(1-lambda)*kronecker(diag(r),A.sq_inv)-2*(1-lambda)*kronecker(diag(r),anc.mat1)
-  -2*(1-lambda)^2*kronecker(anc.mat2,A.sq_inv)
-  
-  
-  A.hess=A.hess%*%N
-  
-  
+  ell=function(lambda){
+    alpha=d^2/((1-lambda)*d^2+lambda)
+    temp=sum(diag(S.whit))/lambda-(1-lambda)/lambda*sum(diag(R)*alpha)+sum(log((1-lambda)*d^2+lambda))+(p-r)*log(lambda)
+    return(temp)
+  }
+  lambda.optim=optimize(ell,interval=c(1e-3,1))
+  return(lambda.optim$minimum)
   
 }
 
-
-obj=function(S,K1.inv,K2.inv,nu,lambda,A){
+obj=function(S,K1.inv,K2.inv,nu,A,lambda){
   
-  p=ncol(S); r=ncol(A)
-  
+  p1=ncol(K1.inv)
   K.inv=kronecker(K2.inv,K1.inv)/nu
   S.whit=K.inv%*%S%*%t(K.inv)
+  p=nrow(A); r=ncol(A)
+  A.svd=svd(A,r)
+  U=A.svd$u
+  d=A.svd$d
+  C=U%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(U)
   
-  A.svd=svd(A)
-  u=A.svd$u; d=A.svd$d
-  A.sq_inv=(1-lambda)/lambda*u%*%diag(d^2/((1-lambda)*d^2+lambda))%*%t(u)
-  
-  lik=sum(diag(S.whit))/(lambda)-sum(S.whit*A.sq_inv)
-  +2*p*log(nu)+sum(log((1-lambda)*d^2+lambda))+(p-r)*log(lambda)
-  return(lik)
+  val=sum(diag(S.whit))/lambda-(1-lambda)/lambda*sum(diag(S.whit%*%C))+sum(log((1-lambda)*d^2+lambda))+(p-r)*log(lambda)+2*p*log(nu)
+  return(val)
   
 }
 
-optim.lik=function(dat,r,metric="AI",maxiter=100,eps=5e-04,center=TRUE){
+optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE){
   
-  ##### Arguments
-  ### dat : data array of dimension (n x p1 x p2) (sample size x row dimension x column dimension)
-  ### r : partial isotropy rank 
-  ### metric : metric on SPD cone, should be either "AI" (affine-invariant) or "LC" (Log-Cholesky)
-  ### maxiter : maximum number of iteration 
-  ### eps : tolerance parameter for relative convergence criterion
-  ### center : whether center the data (TRUE or FALSE)
-  
-  n=dim(dat)[1]; p1=dim(dat)[2]; p2=dim(dat)[3]
-  
-  if(r<=(p1/p2+p2/p1) && n<=(p1/p2+p2/p1)){
-    stop("Both r and n should be larger than r>p1/p2+p2/p1.")
-  }
-  if(metric!="AI" && metric!="LC"){
-    stop("Metric should either AI or LC.")
-  }
-  
-  ##### Initialization 
-  
+  n=dim(dat)[1]; p1=dim(dat)[2]; p2=dim(dat)[3]; p=p1*p2
+
   if(center==TRUE){
     dat=apply(dat,MARGIN=c(2,3),FUN=scale,scale=FALSE)   
   }
+  
   S=array.cov(dat)
-  S.kcd=covKCD(S,p1,p2)
+  S.KCD=covKCD(S,p1,p2)
+  K1=S.KCD$K1; K2=S.KCD$K2
   
-  K1=S.kcd$K1; K2=S.kcd$K2; C=S.kcd$C 
-  C.eig=eigs_sym(C,r) 
-  lambda=(p-sum(C.eig$values))/(p-r)
-  C.r=C.eig$vectors%*%diag(C.eig$values)%*%t(C.eig$vectors)
-  C.r=covKCD(C.r,p1,p2)$C
+  K1=sym.root(K1); K2=sym.root(K2)
+  c=det(K1)^(1/p1); d=det(K2)^(1/p2)
+  K1=K1/c; K2=K2/d
+  nu=c*d
   
-  C.r.eig=eigs_sym(C.r,r)
+  K1.inv=solve(K1); K2.inv=solve(K2)
   
-  if(metric=="AI"){
+  C=S.KCD$C; C.eig=eigs_sym(C,r)
+  lambda=(p-sum(C.eig$values))/(p-r) 
+  
+  C.hat=C.eig$vectors%*%diag(C.eig$values)%*%t(C.eig$vectors)
+  C.hat=covKCD(C.hat,p1,p2)$C 
+  A=eigs_sym(C.hat,r)
+  A=A$vectors%*%diag(sqrt(A$values))
+  
+  lik1=obj(S,K1.inv,K2.inv,nu,A,lambda)
+  lik0=lik1/2
+  
+  lik=c(lik1)
+  iter=0
+  
+  K1.temp=K1; K1.inv.temp=K1.inv; K2.temp=K2; K2.inv.temp=K2.inv; nu.temp=nu
+  A.temp=A; lambda.temp=lambda
+  
+  start=Sys.time()
+  while(abs(lik1-lik0)/abs(lik1)>eps && iter<max.iter){
     
-    K1.eig=eigen(K1); K2.eig=eigen(K2)
-    K1=K1.eig$vectors%*%diag(sqrt(K1.eig$values))%*%t(K1.eig$vectors)
-    K2=K2.eig$vectors%*%diag(sqrt(K2.eig$values))%*%t(K2.eig$vectors)
+    lik0=lik1
+    lik
+    K1.temp=optim.K1(dat,K1.temp,K1.inv.temp,K2.inv.temp,A.temp,lambda.temp); K1.inv.temp=solve(K1.temp) 
+    K2.temp=optim.K2(dat,K1.inv.temp,K2.temp,K2.inv.temp,A.temp,lambda.temp); K2.inv.temp=solve(K2.temp)
+    nu.temp=optim.nu(S,K1.inv.temp,K2.inv.temp,A.temp,lambda.temp)
+    A.temp=optim.A(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp,lambda.temp)
+    lambda.temp=optim.lambda(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp)
+    lik1=obj(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp,lambda.temp)
     
-    nu1=exp(mean(log(sqrt(K1.eig$values))))
-    nu2=exp(mean(log(sqrt(K2.eig$values))))
-    K1=K1/nu1; K2=K2/nu2
-    nu=nu1*nu2
-    
+    if(lik1>lik0){
+      rel.conv=0
+      break
+    }else{
+      rel.conv=1
+      iter=iter+1
+      lik=c(lik,lik1)
+      K1=K1.temp; K2=K2.temp; A=A.temp; nu=nu.temp; lambda=lambda.temp
+    }
+  }
+  end=Sys.time()
+  
+  if(iter>=max.iter){
+    convergence=FALSE
   }else{
-    
-    
-    K1.root=sym.root(K1)
-    K2.root=sym.root(K2)
-    
-    K1=t(chol(K1)); K2=t(chol(K2))
-    nu1=exp(mean(log(diag(K1)))); nu2=exp(mean(log(diag(K2))))
-    K1=K1/nu1; K2=K2/nu2
-    nu=nu1*nu2
-    
-    O2
-    O1
-    O=kronecker(O2,O1)
-    
-    
-    
+    convergence=TRUE
   }
   
-  
-  return(list(K1=K1,K2=K2,nu=nu,A=A,lambda=lambda))
-  
-  
+  return(list(K1=K1,K2=K2,nu=nu,A=A,lambda=lambda,lik=lik,rel.conv=rel.conv,convergence=convergence,iter=iter,time=as.numeric(difftime(end,start,units="mins"))))
   
 }
-
