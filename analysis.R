@@ -1,7 +1,7 @@
 ################ utensils
 
 library(tidyverse)
-library(ggpubr)
+library(latex2exp)
 
 load("./numerical.simul/pi.core.fit.16.10.4.20.rds")
 load("./numerical.simul/pi.core.fit.16.10.4.40.rds")
@@ -71,8 +71,203 @@ conv.analy=function(fit1,fit2,fit3,fit4,fit5,name){
   return(list(rel.conv.ai=rel.conv.ai,conv.ai=conv.ai,rel.conv.chol=rel.conv.chol,conv.chol=conv.chol))
 }
 
+plot.K.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size){
+
+  method=rep(c("Base-AI","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$init.ai[,1],fit1$fit.ai.analy[,1],fit1$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[1],300))
+  dat2=tibble(stat=c(fit2$init.ai[,1],fit2$fit.ai.analy[,1],fit2$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[2],300))
+  dat3=tibble(stat=c(fit3$init.ai[,1],fit3$fit.ai.analy[,1],fit3$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[3],300))
+  dat4=tibble(stat=c(fit4$init.ai[,1],fit4$fit.ai.analy[,1],fit4$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[4],300))
+  dat5=tibble(stat=c(fit5$init.ai[,1],fit5$fit.ai.analy[,1],fit5$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[5],300))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("Base-AI","PICSE-AI","PICSE-Chol"))
+  return(dat)
+}
+
+plot.C.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size){
+  
+  method=rep(c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$kro.mle[,2],fit1$cse[,2],fit1$init.ai[,2],fit1$init.chol[,2],
+                     fit1$fit.ai.analy[,2],fit1$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[1],600))
+  dat2=tibble(stat=c(fit2$kro.mle[,2],fit2$cse[,2],fit2$init.ai[,2],fit2$init.chol[,2],
+                     fit2$fit.ai.analy[,2],fit2$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[2],600))
+  dat3=tibble(stat=c(fit3$kro.mle[,2],fit3$cse[,2],fit3$init.ai[,2],fit3$init.chol[,2],
+                     fit3$fit.ai.analy[,2],fit3$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[3],600))
+  dat4=tibble(stat=c(fit4$kro.mle[,2],fit4$cse[,2],fit4$init.ai[,2],fit4$init.chol[,2],
+                     fit4$fit.ai.analy[,2],fit4$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[4],600))
+  dat5=tibble(stat=c(fit5$kro.mle[,2],fit5$cse[,2],fit5$init.ai[,2],fit5$init.chol[,2],
+                     fit5$fit.ai.analy[,2],fit5$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[5],600))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"))
+  return(dat)
+  
+}
+
+plot.Sigma.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size){
+  
+  method=rep(c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$kro.mle[,3],fit1$cse[,3],fit1$init.ai[,3],fit1$init.chol[,3],
+                     fit1$fit.ai.analy[,3],fit1$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[1],600))
+  dat2=tibble(stat=c(fit2$kro.mle[,3],fit2$cse[,3],fit2$init.ai[,3],fit2$init.chol[,3],
+                     fit2$fit.ai.analy[,3],fit2$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[2],600))
+  dat3=tibble(stat=c(fit3$kro.mle[,3],fit3$cse[,3],fit3$init.ai[,3],fit3$init.chol[,3],
+                     fit3$fit.ai.analy[,3],fit3$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[3],600))
+  dat4=tibble(stat=c(fit4$kro.mle[,3],fit4$cse[,3],fit4$init.ai[,3],fit4$init.chol[,3],
+                     fit4$fit.ai.analy[,3],fit4$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[4],600))
+  dat5=tibble(stat=c(fit5$kro.mle[,3],fit5$cse[,3],fit5$init.ai[,3],fit5$init.chol[,3],
+                     fit5$fit.ai.analy[,3],fit5$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[5],600))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"))
+  return(dat)
+  
+  
+}
 
 ################ analysis : mean & sd
+
+fit.16.10.4.20=stat.analy(pi.core.fit.16.10.4.20)
+colMeans(fit.16.10.4.20$kro.mle)
+# 0.3786591 0.9642735 0.9100132
+colMeans(fit.16.10.4.20$cse)
+# 0.3786591 0.6069784 0.6678124 
+colMeans(fit.16.10.4.20$init.ai)
+# 0.3786591 0.5960378 0.7617314 
+colMeans(fit.16.10.4.20$init.chol)
+# 0.3786591 0.6265214 0.7617314 
+colMeans(fit.16.10.4.20$fit.ai.analy)
+# 0.3017722 0.5410270 0.5982598
+colMeans(fit.16.10.4.20$fit.chol.analy)
+# 0.3002198 0.5552815 0.586933
+
+apply(fit.16.10.4.20$kro.mle,2,sd)
+# 0.13255332 0.00000000 0.01292454 
+apply(fit.16.10.4.20$cse,2,sd)
+# 0.13255332 0.08911778 0.12833524 
+apply(fit.16.10.4.20$init.ai,2,sd)
+# 0.1325533 0.1001271 0.2519618  
+apply(fit.16.10.4.20$init.chol,2,sd)
+#0.1325533 0.1033793 0.2519618 
+apply(fit.16.10.4.20$fit.ai.analy,2,sd)
+#0.08116978 0.07364883 0.12791956
+apply(fit.16.10.4.20$fit.chol.analy,2,sd)
+#0.08177394 0.07829873 0.12402712 
+
+fit.16.10.4.40=stat.analy(pi.core.fit.16.10.4.40)
+colMeans(fit.16.10.4.40$kro.mle)
+# 0.2415698 0.9642735 0.9097429
+colMeans(fit.16.10.4.40$cse)
+# 0.2415698 0.5269639 0.5339689
+colMeans(fit.16.10.4.40$init.ai)
+# 0.2415698 0.3924712 0.4903909
+colMeans(fit.16.10.4.40$init.chol)
+# 0.2415698 0.4122659 0.4903909
+colMeans(fit.16.10.4.40$fit.ai.analy)
+# 0.1976207 0.3124212 0.3524997
+colMeans(fit.16.10.4.40$fit.chol.analy)
+# 0.1974966 0.3239209 0.3519779 
+
+apply(fit.16.10.4.40$kro.mle,2,sd)
+#0.060482790 0.000000000 0.006904542 
+apply(fit.16.10.4.40$cse,2,sd)
+#0.06048279 0.05153313 0.06693021
+apply(fit.16.10.4.40$init.ai,2,sd)
+#0.06048279 0.04910626 0.10572909 
+apply(fit.16.10.4.40$init.chol,2,sd)
+#0.06048279 0.05089842 0.10572909
+apply(fit.16.10.4.40$fit.ai.analy,2,sd)
+#0.04532423 0.02912423 0.05511835 
+apply(fit.16.10.4.40$fit.chol.analy,2,sd)
+#0.04452993 0.03214142 0.05522742
+
+fit.16.10.4.80=stat.analy(pi.core.fit.16.10.4.80)
+colMeans(fit.16.10.4.80$kro.mle)
+# 0.1619736 0.9642735 0.9104522
+colMeans(fit.16.10.4.80$cse)
+# 0.1619736 0.4601483 0.4766726 
+colMeans(fit.16.10.4.80$init.ai)
+# 0.1619736 0.2793752 0.3537015 
+colMeans(fit.16.10.4.80$init.chol)
+# 0.1619736 0.2929055 0.3537015 
+colMeans(fit.16.10.4.80$fit.ai.analy)
+# 0.1372027 0.2059765 0.2483067
+colMeans(fit.16.10.4.80$fit.chol.analy)
+# 0.1378048 0.2166128 0.2491791
+
+apply(fit.16.10.4.80$kro.mle,2,sd)
+#0.034689713 0.000000000 0.005470268
+apply(fit.16.10.4.80$cse,2,sd)
+#0.03468971 0.04651033 0.06355936 
+apply(fit.16.10.4.80$init.ai,2,sd)
+#0.03468971 0.03975086 0.06858048 
+apply(fit.16.10.4.80$init.chol,2,sd)
+#0.03468971 0.04120695 0.06858048 
+apply(fit.16.10.4.80$fit.ai.analy,2,sd)
+#0.02973382 0.01847062 0.03774694
+apply(fit.16.10.4.80$fit.chol.analy,2,sd)
+#0.02953145 0.02238409 0.04055895
+
+fit.16.10.4.160=stat.analy(pi.core.fit.16.10.4.160)
+colMeans(fit.16.10.4.160$kro.mle)
+#0.1173761 0.9642735 0.9104901
+colMeans(fit.16.10.4.160$cse)
+#0.1173761 0.3646184 0.3773209 
+colMeans(fit.16.10.4.160$init.ai)
+#0.1173761 0.1917740 0.2445652
+colMeans(fit.16.10.4.160$init.chol)
+#0.1173761 0.2010542 0.2445652 
+colMeans(fit.16.10.4.160$fit.ai.analy)
+#0.09779566 0.13898238 0.17324516
+colMeans(fit.16.10.4.160$fit.chol.analy)
+#0.09853161 0.14649609 0.17411761
+
+apply(fit.16.10.4.160$kro.mle,2,sd)
+#0.021367066 0.000000000 0.003757931 
+apply(fit.16.10.4.160$cse,2,sd)
+#0.02136707 0.03636015 0.05286314
+apply(fit.16.10.4.160$init.ai,2,sd)
+#0.02136707 0.02587712 0.04493711
+apply(fit.16.10.4.160$init.chol,2,sd)
+#0.02136707 0.02621295 0.04493711
+apply(fit.16.10.4.160$fit.ai.analy,2,sd)
+#0.02180036 0.01304000 0.02704266
+apply(fit.16.10.4.160$fit.chol.analy,2,sd)
+#0.02186110 0.01354360 0.02762492
+
+fit.16.10.4.320=stat.analy(pi.core.fit.16.10.4.320)
+colMeans(fit.16.10.4.320$kro.mle)
+#0.09856144 0.94491661 0.83332669
+colMeans(fit.16.10.4.320$cse)
+#0.09856144 0.27477500 0.26962505
+colMeans(fit.16.10.4.320$init.ai)
+#0.09856144 0.15931361 0.19421087 
+colMeans(fit.16.10.4.320$init.chol)
+#0.09856144 0.16618407 0.19421087
+colMeans(fit.16.10.4.320$fit.ai.analy)
+#0.08594988 0.12656208 0.15071566
+colMeans(fit.16.10.4.320$fit.chol.analy)
+#0.08635607 0.13287770 0.15100579
+
+apply(fit.16.10.4.320$kro.mle,2,sd)
+#0.026003586 0.000000000 0.007177489 
+apply(fit.16.10.4.320$cse,2,sd)
+#0.02600359 0.03406020 0.04661363 
+apply(fit.16.10.4.320$init.ai,2,sd)
+#0.02600359 0.02223817 0.04398408 
+apply(fit.16.10.4.320$init.chol,2,sd)
+#0.02600359 0.02210112 0.04398408
+apply(fit.16.10.4.320$fit.ai.analy,2,sd)
+#0.02155511 0.01346157 0.02734832 
+apply(fit.16.10.4.320$fit.chol.analy,2,sd)
+#0.02153682 0.01375523 0.02785751
 
 fit.12.8.4.12=stat.analy(pi.core.fit.12.8.4.12)
 colMeans(fit.12.8.4.12$kro.mle)
@@ -253,4 +448,28 @@ apply(conv.12.8$rel.conv.chol,1,sd)
 apply(conv.12.8$conv.chol,1,sd)
 # 0 0 0 0 0 
 
-################ analysis : convergence
+################ analysis : plot 
+
+K.analy.16.10.4=plot.K.analy(fit.16.10.4.20,fit.16.10.4.40,fit.16.10.4.80,fit.16.10.4.160,fit.16.10.4.320,c("20","40","80","160","320"))
+ggplot(K.analy.16.10.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(16,10,4)$"))+theme(plot.title=element_text(hjust=0.5))
+
+C.analy.16.10.4=plot.C.analy(fit.16.10.4.20,fit.16.10.4.40,fit.16.10.4.80,fit.16.10.4.160,fit.16.10.4.320,c("20","40","80","160","320"))
+ggplot(C.analy.16.10.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(16,10,4)$"))+theme(plot.title=element_text(hjust=0.5))
+
+Sigma.analy.16.10.4=plot.Sigma.analy(fit.16.10.4.20,fit.16.10.4.40,fit.16.10.4.80,fit.16.10.4.160,fit.16.10.4.320,c("20","40","80","160","320"))
+ggplot(Sigma.analy.16.10.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(16,10,4)$"))+theme(plot.title=element_text(hjust=0.5))
+
+K.analy.12.8.4=plot.K.analy(fit.12.8.4.12,fit.12.8.4.24,fit.12.8.4.48,fit.12.8.4.96,fit.12.8.4.192,c("12","24","48","96","192"))
+ggplot(K.analy.12.8.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(12,8,4)$"))+theme(plot.title=element_text(hjust=0.5))
+
+C.analy.12.8.4=plot.C.analy(fit.12.8.4.12,fit.12.8.4.24,fit.12.8.4.48,fit.12.8.4.96,fit.12.8.4.192,c("12","24","48","96","192"))
+ggplot(C.analy.12.8.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(12,8,4)$"))+theme(plot.title=element_text(hjust=0.5))
+
+Sigma.analy.12.8.4=plot.Sigma.analy(fit.12.8.4.12,fit.12.8.4.24,fit.12.8.4.48,fit.12.8.4.96,fit.12.8.4.192,c("12","24","48","96","192"))
+ggplot(Sigma.analy.12.8.4)+geom_boxplot(mapping=aes(x=samp.size,y=stat,col=Method))+theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(12,8,4)$"))+theme(plot.title=element_text(hjust=0.5))
