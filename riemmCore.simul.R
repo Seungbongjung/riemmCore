@@ -166,26 +166,27 @@ pi.core.fit.16.10.4.320=optim.iter(320,para.16.10.4,lambda,100,100,1)
 save(pi.core.fit.16.10.4.320,file="./numerical.simul/pi.core.fit.16.10.4.320.rds")
 
 ######### r=8
-para.16.10.8=para.generate(8,16,10,100)
-save(para.16.10.8,file="./numerical.simul/para.16.10.8.rds")
+para.12.8.4=para.generate(4,12,8,100)
+save(para.12.8.4,file="./numerical.simul/para.12.8.4.rds")
 lambda=0.4
 
-######### n=p/8 (20)
-pi.core.fit.16.10.8.20=optim.iter(20,para.16.10.8,lambda,100,100,1)
-save(pi.core.fit.16.10.8.20,file="./numerical.simul/pi.core.fit.16.10.8.20.rds")
+######### n=p/8 (12)
+pi.core.fit.12.8.4.12=optim.iter(12,para.12.8.4,lambda,100,100,1)
+save(pi.core.fit.12.8.4.12,file="./numerical.simul/pi.core.fit.12.8.4.12.rds")
 
-######### n=p/4 (40)
-pi.core.fit.16.10.8.40=optim.iter(40,para.16.10.8,lambda,100,100,1)
-save(pi.core.fit.16.10.8.40,file="./numerical.simul/pi.core.fit.16.10.8.40.rds")
+######### n=p/4 (24)
+pi.core.fit.12.8.4.24=optim.iter(24,para.12.8.4,lambda,100,100,1)
+save(pi.core.fit.12.8.4.24,file="./numerical.simul/pi.core.fit.12.8.4.24.rds")
 
-######### n=p/2 (80)
-pi.core.fit.16.10.8.80=optim.iter(80,para.16.10.8,lambda,100,100,1)
-save(pi.core.fit.16.10.8.80,file="./numerical.simul/pi.core.fit.16.10.8.80.rds")
+######### n=p/2 (48)
+pi.core.fit.12.8.4.48=optim.iter(48,para.12.8.4,lambda,100,100,1)
+save(pi.core.fit.12.8.4.48,file="./numerical.simul/pi.core.fit.12.8.4.48.rds")
 
-######### n=p (160)
-pi.core.fit.16.10.8.160=optim.iter(160,para.16.10.8,lambda,100,100,1)
-save(pi.core.fit.16.10.8.160,file="./numerical.simul/pi.core.fit.16.10.8.160.rds")
+######### n=p (96)
+pi.core.fit.12.8.4.96=optim.iter(96,para.12.8.4,lambda,100,100,1)
+save(pi.core.fit.12.8.4.96,file="./numerical.simul/pi.core.fit.12.8.4.96.rds")
 
-######### n=2p (320)
-pi.core.fit.16.10.8.320=optim.iter(320,para.16.10.8,lambda,100,100,1)
-save(pi.core.fit.16.10.8.320,file="./numerical.simul/pi.core.fit.16.10.8.320.rds")
+######### n=2p (192)
+pi.core.fit.12.8.4.192=optim.iter(192,para.12.8.4,lambda,100,100,1)
+save(pi.core.fit.12.8.4.192,file="./numerical.simul/pi.core.fit.12.8.4.192.rds")
+
