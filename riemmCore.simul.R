@@ -47,16 +47,6 @@ dat.generate=function(n,para,lambda){
   
 }
 
-pt.estimator=function(dat){
-  
-  dat.dim=dim(dat)
-  n=dat.dim[1]; p1=dat.dim[2]; p2=dat.dim[3]
-  S=mcov(dat)
-  S1=pt.mat(S,1,p1,p2); S1=S1/mean(diag(S1))
-  S2=pt.mat(S,2,p1,p2); S2=S2/mean(diag(S2))
-  return(mean(diag(S))*kronecker(S2,S1))
-}
-  
 pi.core.cov=function(est){
   
   K1=est$K1; K2=est$K2; nu=est$nu; A=est$A; lambda=est$lambda
@@ -94,7 +84,6 @@ optim.iter=function(n,para,lambda,iter,seed,print.iter,eps=0.001,max.iter=100){
   colnames(pi.core.init.ai)=c("K","C","Sigma")
   colnames(pi.core.init.chol)=c("C","Sigma")
   colnames(kro.mle)=c("C","Sigma")
-  colnames(pt.est)=c("K","Sigma")
   colnames(cse)=c("C","Sigma")
   
   set.seed(seed)
@@ -123,8 +112,6 @@ optim.iter=function(n,para,lambda,iter,seed,print.iter,eps=0.001,max.iter=100){
     pi.core.init.chol[i,]=c(svds(C.rank_r-O.true%*%C.true%*%t(O.true),1)$d,svds(K.init.chol%*%C.rank_r%*%t(K.init.chol)-Sigma,1)$d)/c(C.true.val,Sigma.val)
 
     kro.mle[i,]=c(svds(diag(p)-C.true,1)$d,svds(K.init-Sigma,1)$d)/c(C.true.val,Sigma.val)
-    dat.pt=pt.estimator(dat)
-    pt.est[i,]=c(svds(dat.pt-K.true,1)$d,svds(dat.pt-Sigma,1)$d)/c(K.true.val,Sigma.val)
     w=attributes(covCSE(dat,n=n,p1=p1,p2=p2))$w
     cse.est=K.init.root%*%((1-w)*C.init+w*diag(p))%*%t(K.init.root)
     cse[i,]=c(svds((1-w)*C.init+w*diag(p)-C.true,1)$d,svds(cse.est-Sigma,1)$d)/c(C.true.val,Sigma.val)
