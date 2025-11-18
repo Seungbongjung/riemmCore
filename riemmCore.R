@@ -235,11 +235,10 @@ optim.K2=function(dat,K1.inv,K2,K2.inv,A,lambda,metric="AI"){
   
 }
 
-
 optim.A=function(S,K1.inv,K2.inv,nu,A,lambda){
-  
+
   K.inv=kronecker(K2.inv,K1.inv)/nu
-  
+
   p1=ncol(K1.inv); p2=ncol(K2.inv); p=p1*p2
   r=ncol(A)
   
@@ -253,34 +252,45 @@ optim.A=function(S,K1.inv,K2.inv,nu,A,lambda){
   
   euclid.deriv=-2*(1-lambda)*C.inv%*%S.whit%*%C.inv%*%A+2*(1-lambda)*C.inv%*%A
   J=J.mat(A,p1)
-  J.ginv=pinv(J)
-  proj.J=J.ginv%*%J
+  J.svd=svds(J,choose(p1+1,2)+choose(p2+1,2)-1)
+  J.ginv=J.svd$u%*%diag(1/J.svd$d)%*%t(J.svd$v)
+  V=J.svd$v
+  proj.J=V%*%t(V)
+  V.ortho=Null(V)
+  
   proj.null=diag(p*r)-proj.J
   euclid.deriv=as.numeric(euclid.deriv)
   
   grad=euclid.deriv-proj.J%*%euclid.deriv
-  
-  coeff=NULL
+  grad.coord=t(V.ortho)%*%grad
+
   anc.mat1=C.inv%*%S.whit%*%C.inv
   
   euclid.hess.ftn=function(i){
-    basis=matrix(proj.null[,i],p,r)
+    basis=matrix(V.ortho[,i],p,r)
     anc.mat2=C.inv%*%(A%*%t(basis)+basis%*%t(A))
     euclid.hess=-2*(1-lambda)*anc.mat1%*%basis+2*(1-lambda)*C.inv%*%basis+
-      2*(1-lambda)^2*C.inv%*%(A%*%t(basis)+basis%*%t(A))%*%anc.mat1%*%A+
+      2*(1-lambda)^2*anc.mat2%*%anc.mat1%*%A+
       2*(1-lambda)^2*C.inv%*%S.whit%*%anc.mat2%*%C.inv%*%A-
       2*(1-lambda)^2*anc.mat2%*%C.inv%*%A
+    
     J.basis=J.mat(basis,p1)
-    temp1=as.numeric(euclid.hess)
-    temp2=as.numeric((J.ginv%*%J.basis%*%proj.null+proj.null%*%t(J.basis)%*%t(J.ginv))%*%euclid.deriv)
-    return(temp1-temp2)
+    temp=t(J.basis)%*%J.ginv%*%proj.J%*%euclid.deriv; temp=as.numeric(temp)
+    return(as.numeric(euclid.hess)-temp)
   }
   
-  coeff=mclapply(X=1:(p*r),FUN=euclid.hess.ftn,mc.cores=max(1,detectCores()-1))
-  coeff=proj.null%*%do.call(cbind,coeff)
+  ortho.dim=p*r-choose(p1+1,2)-choose(p2+1,2)+1
+  if(.Platform$OS.type=="unix"){
+    coeff=mclapply(1:ortho.dim,euclid.hess.ftn,mc.cores=max(1,detectCores()-1))
+  }else{
+    coeff=future_lapply(1:ortho.dim,euclid.hess.ftn)
+  }
   
-  v=-lsmr(coeff,grad)$x
-  v=v-proj.J%*%v
+  coeff=proj.null%*%do.call(cbind,coeff)
+  coeff.coord=t(V.ortho)%*%coeff
+  
+  v=-lsmr(coeff.coord,grad.coord)$x
+  v=V.ortho%*%v
   V=matrix(v,p,r)
   M=A%*%t(V)+V%*%t(A)
   M=A%*%t(A)+M
@@ -350,9 +360,9 @@ obj=function(S,K1.inv,K2.inv,nu,A,lambda){
 }
 
 optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE,metric="AI"){
-  
+ 
   n=dim(dat)[1]; p1=dim(dat)[2]; p2=dim(dat)[3]; p=p1*p2
-
+  
   if(center==TRUE){
     dat=apply(dat,MARGIN=c(2,3),FUN=scale,scale=FALSE)   
   }
@@ -360,7 +370,7 @@ optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE,metric="AI"){
   S=array.cov(dat)
   S.KCD=covKCD(S,p1,p2)
   K1=S.KCD$K1; K2=S.KCD$K2
-  
+
   if(metric=="AI"){
     K1=sym.root(K1); K2=sym.root(K2)
     c=det(K1)^(1/p1); d=det(K2)^(1/p2)
@@ -398,7 +408,7 @@ optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE,metric="AI"){
   
   start=Sys.time()
   while(abs(lik1-lik0)/abs(lik1)>eps && iter<max.iter){
-    
+
     lik0=lik1
     
     K1.temp=optim.K1(dat,K1.temp,K1.inv.temp,K2.inv.temp,A.temp,lambda.temp,metric); K1.inv.temp=solve(K1.temp) 
@@ -407,7 +417,7 @@ optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE,metric="AI"){
     A.temp=optim.A(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp,lambda.temp)
     lambda.temp=optim.lambda(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp)
     lik1=obj(S,K1.inv.temp,K2.inv.temp,nu.temp,A.temp,lambda.temp)
-   
+    
     if(lik1>lik0){
       rel.conv=0
       break
@@ -419,7 +429,7 @@ optim.lik=function(dat,r,eps=5e-4,max.iter=100,center=TRUE,metric="AI"){
     }
   }
   end=Sys.time()
-  
+ 
   if(iter>=max.iter){
     convergence=FALSE
   }else{
