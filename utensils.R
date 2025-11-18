@@ -2,6 +2,7 @@
 
 library(Matrix)
 library(parallel)
+library(future.apply)
 library(matrixcalc)
 library(covKCD)
 library(MASS)
@@ -164,15 +165,7 @@ core.tangent.proj=function(mat,p1,p2){
 
   pt1=pt.mat(mat,1,p1,p2)
   pt2=pt.mat(mat,2,p1,p2)
-  return(mat-kronecker(diag(p2),pt1)/p2-kronecker(pt2,diag(p1))/p1+diag(p)*sum(diag(mat))/p)   
-  
-}
-
-core.tangent.proj.ai=function(V,p1,p2){
-  
-}
-
-core.tangent.proj.lc=function(V,p1,p2){
+  return(mat-kronecker(diag(p2),pt1)/p2-kronecker(pt2,diag(p1))/p1+diag(p)*mean(diag(mat)))   
   
 }
 
@@ -231,39 +224,208 @@ J.mat=function(A,p1){
   return(rbind(J1,J2,2*t(a)))
 }
 
-sym.basis=function(p,Sigma=0,unit.det=FALSE){
+diff.h=function(K1,K2,U1,U2,root="sym"){
   
-  ####### Create a basis 
-  ####### Argument 
-  
-  
-}
-
-hess.k=function(Sigma,p1,p2){
-  
-}
-
-diff.k=function(Sigma,K1=0,K2=0,p1,p2,sep=FALSE){
-  
-}
-
-diff.c=function(Sigma,p1,p2,root="sym",sep=FALSE){
-  
-}
-
-diff.f=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
-  
-}
-
-diff.g=function(K1,K2,C,V,W,root="sym"){
+  ###### Compute differential of h 
+  ###### Argument 
+  ## K1: p1 x p1 row covariance 
+  ## K2: p2 x p2 column covariance
+  ## U1: p1 x p1 symmetric
+  ## U2: p2 x p2 symmetric 
+  ## root: "sym" (Symmetric) or "chol" (Cholesky) for separable component
   
   if(root=="sym"){
     
+    p1=ncol(K1); p2=ncol(K2)
+    K1.eig=eigen(K1); K2.eig=eigen(K2)
+    Q1=K1.eig$vectors; Q2=K2.eig$vectors
+    lambda1=K1.eig$values; lambda2=K2.eig$values 
+    lambda1.sqrt=sqrt(lambda1); lambda2.sqrt=sqrt(lambda2)
+    Q=kronecker(Q2,Q1)
+    Lambda=kronecker(rep(1,p2)%*%t(lambda2.sqrt),rep(1,p1)%*%t(lambda1.sqrt)); Lambda=Lambda+t(Lambda)
+    temp=kronecker(diag(lambda2),t(Q1)%*%U1%*%Q1)+kronecker(t(Q2)%*%U2%*%Q2,diag(lambda1))
+    temp=temp*(1/Lambda)
+    return(Q%*%temp%*%t(Q))
+    
+    
   }else{
+    
+    L1=t(chol(K1)); L2=t(chol(K2))
+    L1.inv=solve(L1); L2.inv=solve(L2)
+    p1=ncol(L1); p2=ncol(L2)
+    L=kronecker(L2,L1)
+    temp1=sym2chol(L1.inv%*%U1%*%t(L1.inv))
+    temp2=sym2chol(L2.inv%*%U2%*%t(L2.inv))
+    return(L%*%(kronecker(diag(p2),temp1)+kronecker(temp2,diag(p1))))
     
   }
   
 }
 
+diff.g=function(K1,K2,C,U1,U2,W,root="sym"){
+  
+  ###### Compute differential of g
+  ###### Argument 
+  ## K1: p1 x p1 row covariance 
+  ## K2: p2 x p2 column covariance
+  ## C: p x p core covariance (p=p1p2)
+  ## U1: p1 x p1 symmetric
+  ## U2: p2 x p2 symmetric 
+  ## W: tangent vector of core covariance manifold 
+  ## root: "sym" (Symmetric) or "chol" (Cholesky) for separable component
+  
+  if(root=="sym"){
+    
+    H=diff.h(K1,K2,U1,U2,root=root)
+    S1=sym.root(K1); S2=sym.root(K2); S=kronecker(S2,S1)
+    return(S%*%W%*%t(S)+H%*%C%*%t(S)+S%*%C%*%t(H))
+  
+    
+  }else{
+    
+    H=diff.h(K1,K2,U1,U2,root=root)
+    L1=t(chol(K1)); L2=t(chol(K2)); L=kronecker(L2,L1)
+    return(L%*%W%*%t(L)+H%*%C%*%t(L)+L%*%C%*%t(H))
+    
+  }
+  
+}
+
+hess.k=function(u,K1,K2,C,V,p1,p2){
+  
+  ###### Compute the Riemannian Hessian operator of 
+  ###### Argument 
+  ## Sigma: p x p covariance matrix (p=p1p2)
+  ## V: p x p symmetric matrix
+  ## p1: row dimension
+  ## p2: column dimension
+  ## sep: whether Sigma is separable (TRUE) or not (FALSE) 
+  
+  K1.inv.root=sym.inv.root(K1)
+  K2.inv.root=sym.inv.root(K2)
+  K.inv.root=kronecker(K2.inv.root,K1.inv.root)
+  V.whit=K.inv.root%*%V%*%t(K.inv.root)
+  
+  
+  
+  
+}
+
+diff.k=function(Sigma,V,p1,p2,sep=FALSE){
+  
+  ###### Compute differential of k
+  ###### Argument 
+  ## Sigma: p x p covariance matrix (p=p1p2)
+  ## V: p x p symmetric matrix
+  ## p1: row dimension
+  ## p2: column dimension
+  ## sep: whether Sigma is separable (TRUE) or not (FALSE) 
+
+  
+  if(sep==TRUE){
+    
+    Sigma.KCD=covKCD(Sigma,p1,p2)
+    K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
+    K1.inv.root=sym.inv.root(K1)
+    K2.inv.root=sym.inv.root(K2)
+    K.inv.root=kronecker(K2.inv.root,K1.inv.root)
+    V.whit=K.inv.root%*%V%*%t(K.inv.root)
+    
+    K1.root=sym.root(K1); K2.root=sym.root(K2)
+    K.root=kronecker(K2.root,K1.root)
+    p=p1*p2
+    V1=pt.mat(V.whit,1,p1,p2)
+    V2=pt.mat(V.whit,2,p1,p2)
+    return(K.root%*%(kronecker(V2,diag(p1))/p1+kronecker(diag(p2),V1)/p2-diag(p)*sum(diag(V.whit))/p)%*%t(K.root))
+    
+  }else{
+    
+    Sigma.KCD=covKCD(Sigma,p1,p2)
+    K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
+    C=Sigma.KCD$C
+    
+  }
+  
+}
+
+diff.c=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
+  
+  ###### Compute differential of c
+  ###### Argument 
+  ## Sigma: p x p covariance matrix (p=p1p2)
+  ## V: p x p symmetric matrix
+  ## p1: row dimension
+  ## p2: column dimension
+  ## root: "sym" (Symmetric) or "chol" (Cholesky) for separable component 
+  ## sep: whether Sigma is separable (TRUE) or not (FALSE) 
+  
+  
+  if(sep==TRUE){
+    
+    Sigma.KCD=covKCD(Sigma,p1,p2)
+    K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
+    
+    K1.inv.root=sym.inv.root(K1); K1.root=sym.root(K1)
+    K2.inv.root=sym.inv.root(K2); K2.root=sym.root(K2)
+    K.inv.root=kronecker(K2.inv.root,K1.inv.root)
+    V.whit=K.inv.root%*%V%*%t(K.inv.root)
+    V1=pt.mat(V.whit,1,p1,p2); V2=pt.mat(V.whit,2,p1,p2)
+    U1=K1.root%*%(V1-sum(diag(V.whit))/p1*diag(p1))%*%t(K1.root)/p2
+    U2=K2.root%*%V2%*%t(K2.root)/p1
+    
+    if(root=="sym"){
+      
+      K1.eig=eigen(K1); K2.eig=eigen(K2)
+      Q1=K1.eig$vectors; Q2=K2.eig$vectors
+      lambda1=K1.eig$values; lambda2=K2.eig$values 
+      lambda1.sqrt=sqrt(lambda1); lambda2.sqrt=sqrt(lambda2)
+      Q=kronecker(Q2,Q1)
+      Lambda=kronecker(rep(1,p2)%*%t(lambda2.sqrt),rep(1,p1)%*%t(lambda1.sqrt)); Lambda=Lambda+t(Lambda)
+      temp=kronecker(diag(lambda2),t(Q1)%*%U1%*%Q1)+kronecker(t(Q2)%*%U2%*%Q2,diag(lambda1))
+      temp=temp*(1/Lambda)
+      temp=Q%*%kronecker(diag(1/lambda2.sqrt),diag(1/lambda1.sqrt))%*%temp%*%t(Q)
+        
+      temp=V.whit-temp-t(temp)
+      return(temp)
+      
+    }else{
+      
+      L1=t(chol(K1)); L1.inv=solve(L1)
+      L2=t(chol(K2)); L2.inv=solve(L2)
+      L.inv=kronecker(L2.inv,L1.inv)
+      
+      temp=kronecker(diag(p2),sym2chol(L1.inv%*%U1%*%t(L1.inv)))+kronecker(sym2chol(L2.inv%*%U2%*%t(L2.inv)),diag(p1))
+      temp=L.inv%*%V%*%t(L.inv)-temp-t(temp)
+      return(temp)
+      
+    }
+   
+  }else{
+    
+    Sigma.KCD=covKCD(Sigma,p1,p2)
+    K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
+    C=Sigma.KCD$C
+    
+    K1.inv.root=sym.inv.root(K1); K1.root=sym.root(K1)
+    K2.inv.root=sym.inv.root(K2); K2.root=sym.root(K2)
+    K.inv.root=kronecker(K2.inv.root,K1.inv.root)
+    V.whit=K.inv.root%*%V%*%t(K.inv.root)
+    V1=pt.mat(V.whit,1,p1,p2); V2=pt.mat(V.whit,2,p1,p2)
+    U1=K1.root%*%(V1-sum(diag(V.whit))/p1*diag(p1))%*%t(K1.root)/p2
+    U2=K2.root%*%V2%*%t(K2.root)/p1
+    
+    
+    
+  }
+  
+}
+
+diff.f=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
+  
+  K=diff.k(Sigma,V,p1,p2,root=root,sep=sep)
+  C=diff.c(Sigma,V,p1,p2,root=root,sep=sep)
+  return(list(diff.k=K,diff.c=C))
+  
+}
 
 
