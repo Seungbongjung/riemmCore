@@ -122,13 +122,13 @@ optim.iter=function(n,para,lambda,iter,seed,print.iter,eps=0.001,max.iter=100){
     pi.ai.cov.est=pi.core.cov(pi.ai.est)
     pi.ai.cov.eval=c(svds(pi.ai.cov.est$K.est-K.true,1)$d,svds(pi.ai.cov.est$C.est-C.true,1)$d,svds(pi.ai.cov.est$Sigma.est-Sigma,1)$d)/c(K.true.val,C.true.val,Sigma.val)
     names(pi.ai.cov.eval)=c("K","C","Sigma")
-    pi.core.ai[[i]]=list(eval=pi.ai.cov.eval,lik=pi.ai.est$lik,rel.conv=pi.ai.est$rel.conv,convergence=pi.ai.est$convergence,iter=pi.ai.est$iter,
+    pi.core.ai[[i]]=list(eval=pi.ai.cov.eval,lik=pi.ai.est$lik,lambda=pi.ai.est$lambda,rel.conv=pi.ai.est$rel.conv,convergence=pi.ai.est$convergence,iter=pi.ai.est$iter,
                          time=pi.ai.est$time)
 
     pi.chol.cov.est=pi.core.cov(pi.chol.est)
     pi.chol.cov.eval=c(svds(pi.chol.cov.est$K.est-K.true,1)$d,svds(pi.chol.cov.est$C.est-O.true%*%C.true%*%t(O.true),1)$d,svds(pi.chol.cov.est$Sigma.est-Sigma,1)$d)/c(K.true.val,C.true.val,Sigma.val)
     names(pi.chol.cov.eval)=c("K","C","Sigma")
-    pi.core.chol[[i]]=list(eval=pi.chol.cov.eval,lik=pi.chol.est$lik,rel.conv=pi.chol.est$rel.conv,convergence=pi.chol.est$convergence,iter=pi.chol.est$iter,
+    pi.core.chol[[i]]=list(eval=pi.chol.cov.eval,lik=pi.chol.est$lik,lambda=pi.chol.est$lambda,rel.conv=pi.chol.est$rel.conv,convergence=pi.chol.est$convergence,iter=pi.chol.est$iter,
                          time=pi.chol.est$time)
 
     if(i%%print.iter==0){
@@ -165,7 +165,7 @@ save(pi.core.fit.16.10.4.160,file="./numerical.simul/pi.core.fit.16.10.4.160.rds
 pi.core.fit.16.10.4.320=optim.iter(320,para.16.10.4,lambda,100,100,1)
 save(pi.core.fit.16.10.4.320,file="./numerical.simul/pi.core.fit.16.10.4.320.rds")
 
-######### r=8
+######### r=4
 para.12.8.4=para.generate(4,12,8,100)
 save(para.12.8.4,file="./numerical.simul/para.12.8.4.rds")
 lambda=0.4
@@ -183,10 +183,11 @@ pi.core.fit.12.8.4.48=optim.iter(48,para.12.8.4,lambda,100,100,1)
 save(pi.core.fit.12.8.4.48,file="./numerical.simul/pi.core.fit.12.8.4.48.rds")
 
 ######### n=p (96)
-pi.core.fit.12.8.4.96=optim.iter(96,para.12.8.4,lambda,100,100,1)
+pi.core.fit.12.8.4.96=optim.iter(96,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.96,file="./numerical.simul/pi.core.fit.12.8.4.96.rds")
 
 ######### n=2p (192)
 pi.core.fit.12.8.4.192=optim.iter(192,para.12.8.4,lambda,100,100,1)
 save(pi.core.fit.12.8.4.192,file="./numerical.simul/pi.core.fit.12.8.4.192.rds")
+
 
