@@ -166,20 +166,20 @@ pi.core.fit.16.10.4.320=optim.iter(320,para.16.10.4,lambda,100,100,1)
 save(pi.core.fit.16.10.4.320,file="./numerical.simul/pi.core.fit.16.10.4.320.rds")
 
 ######### r=4
-para.12.8.4=para.generate(4,12,8,100)
+para.12.8.4=para.generate(4,12,8,200)
 save(para.12.8.4,file="./numerical.simul/para.12.8.4.rds")
 lambda=0.4
 
 ######### n=p/8 (12)
-pi.core.fit.12.8.4.12=optim.iter(12,para.12.8.4,lambda,100,100,1)
+pi.core.fit.12.8.4.12=optim.iter(12,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.12,file="./numerical.simul/pi.core.fit.12.8.4.12.rds")
 
 ######### n=p/4 (24)
-pi.core.fit.12.8.4.24=optim.iter(24,para.12.8.4,lambda,100,100,1)
+pi.core.fit.12.8.4.24=optim.iter(24,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.24,file="./numerical.simul/pi.core.fit.12.8.4.24.rds")
 
 ######### n=p/2 (48)
-pi.core.fit.12.8.4.48=optim.iter(48,para.12.8.4,lambda,100,100,1)
+pi.core.fit.12.8.4.48=optim.iter(48,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.48,file="./numerical.simul/pi.core.fit.12.8.4.48.rds")
 
 ######### n=p (96)
@@ -187,7 +187,5 @@ pi.core.fit.12.8.4.96=optim.iter(96,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.96,file="./numerical.simul/pi.core.fit.12.8.4.96.rds")
 
 ######### n=2p (192)
-pi.core.fit.12.8.4.192=optim.iter(192,para.12.8.4,lambda,100,100,1)
+pi.core.fit.12.8.4.192=optim.iter(192,para.12.8.4,lambda,100,200,1)
 save(pi.core.fit.12.8.4.192,file="./numerical.simul/pi.core.fit.12.8.4.192.rds")
-
-
