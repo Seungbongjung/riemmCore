@@ -291,7 +291,7 @@ diff.g=function(K1,K2,C,U1,U2,W,root="sym"){
   
 }
 
-hess.k=function(u,K1,K2,C,V,p1,p2){
+hess.k=function(K1,K2,C,V,p1,p2){
   
   ###### Compute the Riemannian Hessian operator of 
   ###### Argument 
@@ -301,13 +301,57 @@ hess.k=function(u,K1,K2,C,V,p1,p2){
   ## p2: column dimension
   ## sep: whether Sigma is separable (TRUE) or not (FALSE) 
   
-  K1.inv.root=sym.inv.root(K1)
-  K2.inv.root=sym.inv.root(K2)
+  K1.inv.root=sym.inv.root(K1); K1.root=sym.root(K1)
+  K2.inv.root=sym.inv.root(K2); K2.root=sym.root(K2)
   K.inv.root=kronecker(K2.inv.root,K1.inv.root)
   V.whit=K.inv.root%*%V%*%t(K.inv.root)
+  p=p1*p2
+
+  V1=pt.mat(V.whit,1,p1,p2); V1=K1.root%*%(V1-sum(diag(V.whit))/p1*diag(p1))%*%t(K1.root)/p2
+  V2=pt.mat(V.whit,2,p1,p2); V2=K2.root%*%V2%*%t(K2.root)/p1
+
+  f=function(u){
+    
+    u1=u[1:(choose(p1+1,2)-1)]
+    u2=u[(choose(p1+1,2)):(choose(p1+1,2)+choose(p2+1,2)-1)]
   
-  
-  
+    U1=matrix(0,p1,p1); U1[lower.tri(U1)]=u1[p1:(choose(p1+1,2)-1)]
+    U1=U1+t(U1)
+    diag(U1)[1:(p1-1)]=u1[1:(p1-1)]
+    diag(U1)[p1]=-sum(u1[1:(p1-1)])
+    
+    U2=matrix(0,p2,p2); U2[lower.tri(U2,diag=TRUE)]=u2
+    U2=U2+t(U2)-diag(diag(U2))
+    U2.whit=K2.inv.root%*%U2%*%t(K2.inv.root)
+    
+    M1=matrix(0,p1,p1); M2=matrix(0,p2,p2)
+    
+    for(i in 1:p2){
+      for(j in 1:p2){
+        M1=M1+U2.whit[i,j]*C[((j-1)*p1+1):(j*p1),((i-1)*p1+1):(i*p1)]
+        M2[i,j]=sum(diag(C[((i-1)*p1+1):(i*p1),((j-1)*p1+1):(j*p1)]%*%U1))
+      }
+    }
+    U1=K1.root%*%U1%*%t(K1.root)
+    R1=U1+K1.root%*%M1%*%t(K1.root)/p-sum(diag(U2.whit))*K1/p
+    R2=U2+K2.root%*%M2%*%t(K2.root)/p1
+    
+    return(sqrt(sum((R1-V1)^2))+sqrt(sum((R2-V2)^2)))
+  }
+ 
+   u=optim(par=rep(1,(choose(p1+1,2)+choose(p2+1,2)-1)),fn=f,method="BFGS",hessian=TRUE)$par
+   u1=u[1:(choose(p1+1,2)-1)]
+   u2=u[(choose(p1+1,2)):(choose(p1+1,2)+choose(p2+1,2)-1)]
+   U1=matrix(0,p1,p1); U1[lower.tri(U1)]=u1[p1:(choose(p1+1,2)-1)]
+   U1=U1+t(U1)
+   diag(U1)[1:(p1-1)]=u1[1:(p1-1)]
+   diag(U1)[p1]=-sum(u1[1:(p1-1)])
+   U1=K1.root%*%U1%*%t(K1.root)
+   
+   U2=matrix(0,p2,p2); U2[lower.tri(U2,diag=TRUE)]=u2
+   U2=U2+t(U2)-diag(diag(U2))
+   
+   return(list(U1=U1,U2=U2))
   
 }
 
@@ -344,6 +388,10 @@ diff.k=function(Sigma,V,p1,p2,sep=FALSE){
     K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
     C=Sigma.KCD$C
     
+    U=hess.k(K1,K2,C,V,p1,p2)
+    U1=U[[1]]; U2=U[[2]]
+    return(kronecker(U2,K1)+kronecker(K2,U1))
+  
   }
   
 }
@@ -406,18 +454,20 @@ diff.c=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
     K1=Sigma.KCD$K1; K2=Sigma.KCD$K2
     C=Sigma.KCD$C
     
-    K1.inv.root=sym.inv.root(K1); K1.root=sym.root(K1)
-    K2.inv.root=sym.inv.root(K2); K2.root=sym.root(K2)
-    K.inv.root=kronecker(K2.inv.root,K1.inv.root)
-    V.whit=K.inv.root%*%V%*%t(K.inv.root)
-    V1=pt.mat(V.whit,1,p1,p2); V2=pt.mat(V.whit,2,p1,p2)
-    U1=K1.root%*%(V1-sum(diag(V.whit))/p1*diag(p1))%*%t(K1.root)/p2
-    U2=K2.root%*%V2%*%t(K2.root)/p1
+    U=hess.k(K1,K2,C,V,p1,p2)
+    U1=U[[1]]; U2=U[[2]]
+    H=diff.h(K1,K2,U1,U2,root=root)
     
-    
+    if(root=="sym"){
+      H.inv=kronecker(sym.inv.root(K2),sym.inv.root(K1))
+    }else{
+      H.inv=kronecker(solve(t(chol(K2))),solve(t(chol(K1))))
+    }
+    temp=H.inv%*%H
+    return(H.inv%*%V%*%t(H.inv)-temp%*%C-t(C)%*%t(temp))
     
   }
-  
+
 }
 
 diff.f=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
@@ -427,5 +477,4 @@ diff.f=function(Sigma,V,p1,p2,root="sym",sep=FALSE){
   return(list(diff.k=K,diff.c=C))
   
 }
-
 
