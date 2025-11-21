@@ -336,7 +336,7 @@ hess.k=function(K1,K2,C,V,p1,p2){
     R1=U1+K1.root%*%M1%*%t(K1.root)/p-sum(diag(U2.whit))*K1/p
     R2=U2+K2.root%*%M2%*%t(K2.root)/p1
     
-    return(sqrt(sum((R1-V1)^2))+sqrt(sum((R2-V2)^2)))
+    return(sqrt(sum((K1.inv.root%*%(R1-V1)%*%t(K1.inv.root))^2))+sqrt(sum((K2.inv.root%*%(R2-V2)%*%t(K2.inv.root))^2)))
   }
  
    u=optim(par=rep(1,(choose(p1+1,2)+choose(p2+1,2)-1)),fn=f,method="BFGS",hessian=TRUE)$par
