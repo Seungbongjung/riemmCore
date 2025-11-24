@@ -16,6 +16,6 @@ For some parameters, we adopt a second-order Riemannian optimization. For effici
 
 ## Reference 
 
-Hoff, McCormack and Zhang (2023), Core Shrinkage Covariance Estimation for Matrix-variate Data J. R. Stat. Soc., B: Stat., 85 (2023), pp. 1659--1679.
+Hoff, McCormack and Zhang, Core Shrinkage Covariance Estimation for Matrix-variate Data, J. R. Stat. Soc., B: Stat., 85 (2023), pp. 1659--1679.
 
-Sung (2025), sfdfsdf
+Sung, Differential Geometry of Fixed-Rank Core Covariance Manifold, (2025)
