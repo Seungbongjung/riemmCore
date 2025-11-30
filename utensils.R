@@ -333,7 +333,7 @@ hess.k=function(K1,K2,C,V,p1,p2){
       }
     }
     U1=K1.root%*%U1%*%t(K1.root)
-    R1=U1+K1.root%*%M1%*%t(K1.root)/p-sum(diag(U2.whit))*K1/p
+    R1=U1+K1.root%*%M1%*%t(K1.root)/p2-sum(diag(U2.whit))*K1/p2
     R2=U2+K2.root%*%M2%*%t(K2.root)/p1
     
     return(sqrt(sum((K1.inv.root%*%(R1-V1)%*%t(K1.inv.root))^2))+sqrt(sum((K2.inv.root%*%(R2-V2)%*%t(K2.inv.root))^2)))
@@ -350,7 +350,7 @@ hess.k=function(K1,K2,C,V,p1,p2){
    
    U2=matrix(0,p2,p2); U2[lower.tri(U2,diag=TRUE)]=u2
    U2=U2+t(U2)-diag(diag(U2))
-   
+  
    return(list(U1=U1,U2=U2))
   
 }
