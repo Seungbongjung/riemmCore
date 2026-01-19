@@ -1,0 +1,1150 @@
+---
+title: "Numerical Simulation Analysis"
+author: "Bongjung Sung"
+date: "2026-01-18"
+output: pdf_document
+---
+  
+  We provide the summary of the numerical simulations under general factor type core covariance model (see Section 7.1 for details). 
+
+```{r}
+################ Libraries
+
+library(tidyverse)
+library(latex2exp)
+
+################ Loading the simulation results
+file.list=list.files(path="./numerical.simul_gfcore",pattern=".rds")
+file.list=file.list[-c(1:4)]
+
+for(i in file.list){
+  load(paste("./numerical.simul_gfcore/",i,sep=""))
+}
+
+################ Utensils
+
+stat.analy=function(fit){
+  
+  kro.mle=fit$kro.mle
+  cse=fit$cse
+  init.ai=fit$pi.core.init.ai
+  init.chol=fit$pi.core.init.chol
+  fit.ai=fit$pi.core.ai
+  fit.chol=fit$pi.core.chol
+  
+  kro.mle=cbind(init.ai[,1],kro.mle)
+  cse=cbind(init.ai[,1],cse[,1:2])
+  init.chol=cbind(init.ai[,1],init.chol)
+  
+  colnames(kro.mle)=colnames(cse)=colnames(init.chol)=c("K","C","Sigma")
+  
+  fit.ai.analy=NULL; fit.chol.analy=NULL
+  for(i in 1:100){
+    fit.ai.analy=rbind(fit.ai.analy,fit.ai[[i]]$eval)
+    fit.chol.analy=rbind(fit.chol.analy,fit.chol[[i]]$eval)
+  }
+  return(list(kro.mle=kro.mle,cse=cse,init.ai=init.ai,init.chol=init.chol,fit.ai.analy=fit.ai.analy,fit.chol.analy=fit.chol.analy))
+}
+
+conv.analy=function(fit1,fit2,fit3,fit4,fit5,name){
+  
+  fit.ai1=fit1$pi.core.ai
+  fit.chol1=fit1$pi.core.chol
+  fit.ai2=fit2$pi.core.ai
+  fit.chol2=fit2$pi.core.chol
+  fit.ai3=fit3$pi.core.ai
+  fit.chol3=fit3$pi.core.chol
+  fit.ai4=fit4$pi.core.ai
+  fit.chol4=fit4$pi.core.chol
+  fit.ai5=fit5$pi.core.ai
+  fit.chol5=fit5$pi.core.chol
+  
+  rel.conv.ai=NULL
+  conv.ai=NULL
+  rel.conv.chol=NULL
+  conv.chol=NULL
+  
+  for(i in 1:100){
+    temp1=c(fit.ai1[[i]]$rel.conv,fit.ai2[[i]]$rel.conv,fit.ai3[[i]]$rel.conv,fit.ai4[[i]]$rel.conv,fit.ai5[[i]]$rel.conv)
+    temp2=c(fit.ai1[[i]]$convergence,fit.ai2[[i]]$convergence,fit.ai3[[i]]$convergence,fit.ai4[[i]]$convergence,fit.ai5[[i]]$convergence)
+    rel.conv.ai=cbind(rel.conv.ai,temp1)
+    conv.ai=cbind(conv.ai,temp2)
+    
+    temp1=c(fit.chol1[[i]]$rel.conv,fit.chol2[[i]]$rel.conv,fit.chol3[[i]]$rel.conv,fit.chol4[[i]]$rel.conv,fit.chol5[[i]]$rel.conv)
+    temp2=c(fit.chol1[[i]]$convergence,fit.chol2[[i]]$convergence,fit.chol3[[i]]$convergence,fit.chol4[[i]]$convergence,fit.chol5[[i]]$convergence)
+    rel.conv.chol=cbind(rel.conv.chol,temp1)
+    conv.chol=cbind(conv.chol,temp2)
+  }
+  rownames(rel.conv.ai)=rownames(conv.ai)=rownames(rel.conv.chol)=rownames(conv.chol)=name
+  
+  return(list(rel.conv.ai=rel.conv.ai,conv.ai=conv.ai,rel.conv.chol=rel.conv.chol,conv.chol=conv.chol))
+}
+
+plot.K.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
+  
+  method=rep(c("Base-AI","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$init.ai[,1],fit1$fit.ai.analy[,1],fit1$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[1],300),lambda=rep(lambda,300))
+  dat2=tibble(stat=c(fit2$init.ai[,1],fit2$fit.ai.analy[,1],fit2$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[2],300),lambda=rep(lambda,300))
+  dat3=tibble(stat=c(fit3$init.ai[,1],fit3$fit.ai.analy[,1],fit3$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[3],300),lambda=rep(lambda,300))
+  dat4=tibble(stat=c(fit4$init.ai[,1],fit4$fit.ai.analy[,1],fit4$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[4],300),lambda=rep(lambda,300))
+  dat5=tibble(stat=c(fit5$init.ai[,1],fit5$fit.ai.analy[,1],fit5$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[5],300),lambda=rep(lambda,300))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("Base-AI","PICSE-AI","PICSE-Chol"))
+  return(dat)
+}
+
+plot.C.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
+  
+  method=rep(c("CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$cse[,2],fit1$init.ai[,2],fit1$init.chol[,2],
+                     fit1$fit.ai.analy[,2],fit1$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[1],500),
+              lambda=rep(lambda,500))
+  dat2=tibble(stat=c(fit2$cse[,2],fit2$init.ai[,2],fit2$init.chol[,2],
+                     fit2$fit.ai.analy[,2],fit2$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[2],500),
+              lambda=rep(lambda,500))
+  dat3=tibble(stat=c(fit3$cse[,2],fit3$init.ai[,2],fit3$init.chol[,2],
+                     fit3$fit.ai.analy[,2],fit3$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[3],500),
+              lambda=rep(lambda,500))
+  dat4=tibble(stat=c(fit4$cse[,2],fit4$init.ai[,2],fit4$init.chol[,2],
+                     fit4$fit.ai.analy[,2],fit4$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[4],500),
+              lambda=rep(lambda,500))
+  dat5=tibble(stat=c(fit5$cse[,2],fit5$init.ai[,2],fit5$init.chol[,2],
+                     fit5$fit.ai.analy[,2],fit5$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[5],500),
+              lambda=rep(lambda,500))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"))
+  return(dat)
+  
+}
+
+plot.Sigma.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
+  
+  method=rep(c("KMLE","CSE","Base-AI","PICSE-AI","PICSE-Chol"),each=100)
+  
+  dat1=tibble(stat=c(fit1$kro.mle[,3],fit1$cse[,3],fit1$init.ai[,3],
+                     fit1$fit.ai.analy[,3],fit1$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[1],500),
+              lambda=rep(lambda,500)
+  )
+  dat2=tibble(stat=c(fit2$kro.mle[,3],fit2$cse[,3],fit2$init.ai[,3],
+                     fit2$fit.ai.analy[,3],fit2$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[2],500),
+              lambda=rep(lambda,500))
+  dat3=tibble(stat=c(fit3$kro.mle[,3],fit3$cse[,3],fit3$init.ai[,3],
+                     fit3$fit.ai.analy[,3],fit3$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[3],500),
+              lambda=rep(lambda,500))
+  dat4=tibble(stat=c(fit4$kro.mle[,3],fit4$cse[,3],fit4$init.ai[,3],
+                     fit4$fit.ai.analy[,3],fit4$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[4],500),
+              lambda=rep(lambda,500))
+  dat5=tibble(stat=c(fit5$kro.mle[,3],fit5$cse[,3],fit5$init.ai[,3],
+                     fit5$fit.ai.analy[,3],fit5$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[5],500),
+              lambda=rep(lambda,500))
+  
+  dat=rbind(dat1,dat2,dat3,dat4,dat5)
+  dat$samp.size=factor(dat$samp.size,levels=samp.size)
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","PICSE-AI","PICSE-Chol"))
+  return(dat)
+  
+}
+
+```
+
+
+# (p1,p2,r)=(16,12,3)
+
+```{r}
+##### mean of the relative spectral norms for $K$, $C$, and $\Sigma$ (in order) across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+###lambda=0.2
+### n=p/8
+fit.16.12.3.24.lambda1=stat.analy(pi.core.fit.16.12.3.24.lambda1)
+colMeans(fit.16.12.3.24.lambda1$kro.mle)
+colMeans(fit.16.12.3.24.lambda1$cse)
+colMeans(fit.16.12.3.24.lambda1$init.ai)
+colMeans(fit.16.12.3.24.lambda1$init.chol)
+colMeans(fit.16.12.3.24.lambda1$fit.ai.analy)
+colMeans(fit.16.12.3.24.lambda1$fit.chol.analy)
+
+### n=p/4
+fit.16.12.3.48.lambda1=stat.analy(pi.core.fit.16.12.3.48.lambda1)
+colMeans(fit.16.12.3.48.lambda1$kro.mle)
+colMeans(fit.16.12.3.48.lambda1$cse)
+colMeans(fit.16.12.3.48.lambda1$init.ai)
+colMeans(fit.16.12.3.48.lambda1$init.chol)
+colMeans(fit.16.12.3.48.lambda1$fit.ai.analy)
+colMeans(fit.16.12.3.48.lambda1$fit.chol.analy)
+
+### n=p/2
+fit.16.12.3.96.lambda1=stat.analy(pi.core.fit.16.12.3.96.lambda1)
+colMeans(fit.16.12.3.96.lambda1$kro.mle)
+colMeans(fit.16.12.3.96.lambda1$cse)
+colMeans(fit.16.12.3.96.lambda1$init.ai)
+colMeans(fit.16.12.3.96.lambda1$init.chol)
+colMeans(fit.16.12.3.96.lambda1$fit.ai.analy)
+colMeans(fit.16.12.3.96.lambda1$fit.chol.analy)
+
+### n=p
+fit.16.12.3.192.lambda1=stat.analy(pi.core.fit.16.12.3.192.lambda1)
+colMeans(fit.16.12.3.192.lambda1$kro.mle)
+colMeans(fit.16.12.3.192.lambda1$cse)
+colMeans(fit.16.12.3.192.lambda1$init.ai)
+colMeans(fit.16.12.3.192.lambda1$init.chol)
+colMeans(fit.16.12.3.192.lambda1$fit.ai.analy)
+colMeans(fit.16.12.3.192.lambda1$fit.chol.analy)
+
+### n=2p
+fit.16.12.3.384.lambda1=stat.analy(pi.core.fit.16.12.3.384.lambda1)
+colMeans(fit.16.12.3.384.lambda1$kro.mle)
+colMeans(fit.16.12.3.384.lambda1$cse)
+colMeans(fit.16.12.3.384.lambda1$init.ai)
+colMeans(fit.16.12.3.384.lambda1$init.chol)
+colMeans(fit.16.12.3.384.lambda1$fit.ai.analy)
+colMeans(fit.16.12.3.384.lambda1$fit.chol.analy)
+
+###lambda=0.4
+### n=p/8
+fit.16.12.3.24.lambda2=stat.analy(pi.core.fit.16.12.3.24.lambda2)
+colMeans(fit.16.12.3.24.lambda2$kro.mle)
+colMeans(fit.16.12.3.24.lambda2$cse)
+colMeans(fit.16.12.3.24.lambda2$init.ai)
+colMeans(fit.16.12.3.24.lambda2$init.chol)
+colMeans(fit.16.12.3.24.lambda2$fit.ai.analy)
+colMeans(fit.16.12.3.24.lambda2$fit.chol.analy)
+
+### n=p/4
+fit.16.12.3.48.lambda2=stat.analy(pi.core.fit.16.12.3.48.lambda2)
+colMeans(fit.16.12.3.48.lambda2$kro.mle)
+colMeans(fit.16.12.3.48.lambda2$cse)
+colMeans(fit.16.12.3.48.lambda2$init.ai)
+colMeans(fit.16.12.3.48.lambda2$init.chol)
+colMeans(fit.16.12.3.48.lambda2$fit.ai.analy)
+colMeans(fit.16.12.3.48.lambda2$fit.chol.analy)
+
+### n=p/2
+fit.16.12.3.96.lambda2=stat.analy(pi.core.fit.16.12.3.96.lambda2)
+colMeans(fit.16.12.3.96.lambda2$kro.mle)
+colMeans(fit.16.12.3.96.lambda2$cse)
+colMeans(fit.16.12.3.96.lambda2$init.ai)
+colMeans(fit.16.12.3.96.lambda2$init.chol)
+colMeans(fit.16.12.3.96.lambda2$fit.ai.analy)
+colMeans(fit.16.12.3.96.lambda2$fit.chol.analy)
+
+### n=p
+fit.16.12.3.192.lambda2=stat.analy(pi.core.fit.16.12.3.192.lambda2)
+colMeans(fit.16.12.3.192.lambda2$kro.mle)
+colMeans(fit.16.12.3.192.lambda2$cse)
+colMeans(fit.16.12.3.192.lambda2$init.ai)
+colMeans(fit.16.12.3.192.lambda2$init.chol)
+colMeans(fit.16.12.3.192.lambda2$fit.ai.analy)
+colMeans(fit.16.12.3.192.lambda2$fit.chol.analy)
+
+### n=2p
+fit.16.12.3.384.lambda2=stat.analy(pi.core.fit.16.12.3.384.lambda2)
+colMeans(fit.16.12.3.384.lambda2$kro.mle)
+colMeans(fit.16.12.3.384.lambda2$cse)
+colMeans(fit.16.12.3.384.lambda2$init.ai)
+colMeans(fit.16.12.3.384.lambda2$init.chol)
+colMeans(fit.16.12.3.384.lambda2$fit.ai.analy)
+colMeans(fit.16.12.3.384.lambda2$fit.chol.analy)
+
+###lambda=0.6
+### n=p/8
+fit.16.12.3.24.lambda3=stat.analy(pi.core.fit.16.12.3.24.lambda3)
+colMeans(fit.16.12.3.24.lambda3$kro.mle)
+colMeans(fit.16.12.3.24.lambda3$cse)
+colMeans(fit.16.12.3.24.lambda3$init.ai)
+colMeans(fit.16.12.3.24.lambda3$init.chol)
+colMeans(fit.16.12.3.24.lambda3$fit.ai.analy)
+colMeans(fit.16.12.3.24.lambda3$fit.chol.analy)
+
+### n=p/4
+fit.16.12.3.48.lambda3=stat.analy(pi.core.fit.16.12.3.48.lambda3)
+colMeans(fit.16.12.3.48.lambda3$kro.mle)
+colMeans(fit.16.12.3.48.lambda3$cse)
+colMeans(fit.16.12.3.48.lambda3$init.ai)
+colMeans(fit.16.12.3.48.lambda3$init.chol)
+colMeans(fit.16.12.3.48.lambda3$fit.ai.analy)
+colMeans(fit.16.12.3.48.lambda3$fit.chol.analy)
+
+### n=p/2
+fit.16.12.3.96.lambda3=stat.analy(pi.core.fit.16.12.3.96.lambda3)
+colMeans(fit.16.12.3.96.lambda3$kro.mle)
+colMeans(fit.16.12.3.96.lambda3$cse)
+colMeans(fit.16.12.3.96.lambda3$init.ai)
+colMeans(fit.16.12.3.96.lambda3$init.chol)
+colMeans(fit.16.12.3.96.lambda3$fit.ai.analy)
+colMeans(fit.16.12.3.96.lambda3$fit.chol.analy)
+
+### n=p
+fit.16.12.3.192.lambda3=stat.analy(pi.core.fit.16.12.3.192.lambda3)
+colMeans(fit.16.12.3.192.lambda3$kro.mle)
+colMeans(fit.16.12.3.192.lambda3$cse)
+colMeans(fit.16.12.3.192.lambda3$init.ai)
+colMeans(fit.16.12.3.192.lambda3$init.chol)
+colMeans(fit.16.12.3.192.lambda3$fit.ai.analy)
+colMeans(fit.16.12.3.192.lambda3$fit.chol.analy)
+
+### n=2p
+fit.16.12.3.384.lambda3=stat.analy(pi.core.fit.16.12.3.384.lambda3)
+colMeans(fit.16.12.3.384.lambda3$kro.mle)
+colMeans(fit.16.12.3.384.lambda3$cse)
+colMeans(fit.16.12.3.384.lambda3$init.ai)
+colMeans(fit.16.12.3.384.lambda3$init.chol)
+colMeans(fit.16.12.3.384.lambda3$fit.ai.analy)
+colMeans(fit.16.12.3.384.lambda3$fit.chol.analy)
+
+###lambda=0.8
+### n=p/8
+fit.16.12.3.24.lambda4=stat.analy(pi.core.fit.16.12.3.24.lambda4)
+colMeans(fit.16.12.3.24.lambda4$kro.mle)
+colMeans(fit.16.12.3.24.lambda4$cse)
+colMeans(fit.16.12.3.24.lambda4$init.ai)
+colMeans(fit.16.12.3.24.lambda4$init.chol)
+colMeans(fit.16.12.3.24.lambda4$fit.ai.analy)
+colMeans(fit.16.12.3.24.lambda4$fit.chol.analy)
+
+### n=p/4
+fit.16.12.3.48.lambda4=stat.analy(pi.core.fit.16.12.3.48.lambda4)
+colMeans(fit.16.12.3.48.lambda4$kro.mle)
+colMeans(fit.16.12.3.48.lambda4$cse)
+colMeans(fit.16.12.3.48.lambda4$init.ai)
+colMeans(fit.16.12.3.48.lambda4$init.chol)
+colMeans(fit.16.12.3.48.lambda4$fit.ai.analy)
+colMeans(fit.16.12.3.48.lambda4$fit.chol.analy)
+
+### n=p/2
+fit.16.12.3.96.lambda4=stat.analy(pi.core.fit.16.12.3.96.lambda4)
+colMeans(fit.16.12.3.96.lambda4$kro.mle)
+colMeans(fit.16.12.3.96.lambda4$cse)
+colMeans(fit.16.12.3.96.lambda4$init.ai)
+colMeans(fit.16.12.3.96.lambda4$init.chol)
+colMeans(fit.16.12.3.96.lambda4$fit.ai.analy)
+colMeans(fit.16.12.3.96.lambda4$fit.chol.analy)
+
+### n=p
+fit.16.12.3.192.lambda4=stat.analy(pi.core.fit.16.12.3.192.lambda4)
+colMeans(fit.16.12.3.192.lambda4$kro.mle)
+colMeans(fit.16.12.3.192.lambda4$cse)
+colMeans(fit.16.12.3.192.lambda4$init.ai)
+colMeans(fit.16.12.3.192.lambda4$init.chol)
+colMeans(fit.16.12.3.192.lambda4$fit.ai.analy)
+colMeans(fit.16.12.3.192.lambda4$fit.chol.analy)
+
+### n=2p
+fit.16.12.3.384.lambda4=stat.analy(pi.core.fit.16.12.3.384.lambda4)
+colMeans(fit.16.12.3.384.lambda4$kro.mle)
+colMeans(fit.16.12.3.384.lambda4$cse)
+colMeans(fit.16.12.3.384.lambda4$init.ai)
+colMeans(fit.16.12.3.384.lambda4$init.chol)
+colMeans(fit.16.12.3.384.lambda4$fit.ai.analy)
+colMeans(fit.16.12.3.384.lambda4$fit.chol.analy)
+```
+
+
+```{r}
+##### boxplots of the relative spectral norms for K, C, and Sigma across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+### K
+
+K.analy.16.12.3.lambda1=plot.K.analy(fit.16.12.3.24.lambda1,fit.16.12.3.48.lambda1,fit.16.12.3.96.lambda1,fit.16.12.3.192.lambda1,fit.16.12.3.384.lambda1,c("24","48","96","192","384"),"lambda1")
+K.analy.16.12.3.lambda2=plot.K.analy(fit.16.12.3.24.lambda2,fit.16.12.3.48.lambda2,fit.16.12.3.96.lambda2,fit.16.12.3.192.lambda2,fit.16.12.3.384.lambda2,c("24","48","96","192","384"),"lambda2")
+K.analy.16.12.3.lambda3=plot.K.analy(fit.16.12.3.24.lambda3,fit.16.12.3.48.lambda3,fit.16.12.3.96.lambda3,fit.16.12.3.192.lambda3,fit.16.12.3.384.lambda3,c("24","48","96","192","384"),"lambda3")
+K.analy.16.12.3.lambda4=plot.K.analy(fit.16.12.3.24.lambda4,fit.16.12.3.48.lambda4,fit.16.12.3.96.lambda4,fit.16.12.3.192.lambda4,fit.16.12.3.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+K.analy.16.12.3=rbind(K.analy.16.12.3.lambda1,K.analy.16.12.3.lambda2,K.analy.16.12.3.lambda3,K.analy.16.12.3.lambda4)
+K.analy.16.12.3.lambda=factor(K.analy.16.12.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(K.analy.16.12.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+K.analy.16.12.3$lambda=K.analy.16.12.3.lambda
+
+png("./numerical.simul_gfcore/K.16.12.3.png",width=900,height=600)
+ggplot(K.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### C
+
+C.analy.16.12.3.lambda1=plot.C.analy(fit.16.12.3.24.lambda1,fit.16.12.3.48.lambda1,fit.16.12.3.96.lambda1,fit.16.12.3.192.lambda1,fit.16.12.3.384.lambda1,c("24","48","96","192","384"),"lambda1")
+C.analy.16.12.3.lambda2=plot.C.analy(fit.16.12.3.24.lambda2,fit.16.12.3.48.lambda2,fit.16.12.3.96.lambda2,fit.16.12.3.192.lambda2,fit.16.12.3.384.lambda2,c("24","48","96","192","384"),"lambda2")
+C.analy.16.12.3.lambda3=plot.C.analy(fit.16.12.3.24.lambda3,fit.16.12.3.48.lambda3,fit.16.12.3.96.lambda3,fit.16.12.3.192.lambda3,fit.16.12.3.384.lambda3,c("24","48","96","192","384"),"lambda3")
+C.analy.16.12.3.lambda4=plot.C.analy(fit.16.12.3.24.lambda4,fit.16.12.3.48.lambda4,fit.16.12.3.96.lambda4,fit.16.12.3.192.lambda4,fit.16.12.3.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+C.analy.16.12.3=rbind(C.analy.16.12.3.lambda1,C.analy.16.12.3.lambda2,C.analy.16.12.3.lambda3,C.analy.16.12.3.lambda4)
+C.analy.16.12.3.lambda=factor(C.analy.16.12.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(C.analy.16.12.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+C.analy.16.12.3$lambda=C.analy.16.12.3.lambda
+
+png("./numerical.simul_gfcore/C.16.12.3.png",width=900,height=600)
+ggplot(C.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### Sigma
+
+Sigma.analy.16.12.3.lambda1=plot.Sigma.analy(fit.16.12.3.24.lambda1,fit.16.12.3.48.lambda1,fit.16.12.3.96.lambda1,fit.16.12.3.192.lambda1,fit.16.12.3.384.lambda1,c("24","48","96","192","384"),"lambda1")
+Sigma.analy.16.12.3.lambda2=plot.Sigma.analy(fit.16.12.3.24.lambda2,fit.16.12.3.48.lambda2,fit.16.12.3.96.lambda2,fit.16.12.3.192.lambda2,fit.16.12.3.384.lambda2,c("24","48","96","192","384"),"lambda2")
+Sigma.analy.16.12.3.lambda3=plot.Sigma.analy(fit.16.12.3.24.lambda3,fit.16.12.3.48.lambda3,fit.16.12.3.96.lambda3,fit.16.12.3.192.lambda3,fit.16.12.3.384.lambda3,c("24","48","96","192","384"),"lambda3")
+Sigma.analy.16.12.3.lambda4=plot.Sigma.analy(fit.16.12.3.24.lambda4,fit.16.12.3.48.lambda4,fit.16.12.3.96.lambda4,fit.16.12.3.192.lambda4,fit.16.12.3.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+Sigma.analy.16.12.3=rbind(Sigma.analy.16.12.3.lambda1,Sigma.analy.16.12.3.lambda2,Sigma.analy.16.12.3.lambda3,Sigma.analy.16.12.3.lambda4)
+Sigma.analy.16.12.3.lambda=factor(Sigma.analy.16.12.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(Sigma.analy.16.12.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+Sigma.analy.16.12.3$lambda=Sigma.analy.16.12.3.lambda
+
+png("./numerical.simul_gfcore/Sigma.16.12.3.png",width=900,height=600)
+ggplot(Sigma.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+```
+
+# (p1,p2,r)=(18,8,3)
+
+```{r}
+##### mean of the relative spectral norms for $K$, $C$, and $\Sigma$ (in order) across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+###lambda=0.2
+### n=p/8
+fit.18.8.3.18.lambda1=stat.analy(pi.core.fit.18.8.3.18.lambda1)
+colMeans(fit.18.8.3.18.lambda1$kro.mle)
+colMeans(fit.18.8.3.18.lambda1$cse)
+colMeans(fit.18.8.3.18.lambda1$init.ai)
+colMeans(fit.18.8.3.18.lambda1$init.chol)
+colMeans(fit.18.8.3.18.lambda1$fit.ai.analy)
+colMeans(fit.18.8.3.18.lambda1$fit.chol.analy)
+
+### n=p/4
+fit.18.8.3.36.lambda1=stat.analy(pi.core.fit.18.8.3.36.lambda1)
+colMeans(fit.18.8.3.36.lambda1$kro.mle)
+colMeans(fit.18.8.3.36.lambda1$cse)
+colMeans(fit.18.8.3.36.lambda1$init.ai)
+colMeans(fit.18.8.3.36.lambda1$init.chol)
+colMeans(fit.18.8.3.36.lambda1$fit.ai.analy)
+colMeans(fit.18.8.3.36.lambda1$fit.chol.analy)
+
+### n=p/2
+fit.18.8.3.72.lambda1=stat.analy(pi.core.fit.18.8.3.72.lambda1)
+colMeans(fit.18.8.3.72.lambda1$kro.mle)
+colMeans(fit.18.8.3.72.lambda1$cse)
+colMeans(fit.18.8.3.72.lambda1$init.ai)
+colMeans(fit.18.8.3.72.lambda1$init.chol)
+colMeans(fit.18.8.3.72.lambda1$fit.ai.analy)
+colMeans(fit.18.8.3.72.lambda1$fit.chol.analy)
+
+### n=p
+fit.18.8.3.144.lambda1=stat.analy(pi.core.fit.18.8.3.144.lambda1)
+colMeans(fit.18.8.3.144.lambda1$kro.mle)
+colMeans(fit.18.8.3.144.lambda1$cse)
+colMeans(fit.18.8.3.144.lambda1$init.ai)
+colMeans(fit.18.8.3.144.lambda1$init.chol)
+colMeans(fit.18.8.3.144.lambda1$fit.ai.analy)
+colMeans(fit.18.8.3.144.lambda1$fit.chol.analy)
+
+### n=2p
+fit.18.8.3.288.lambda1=stat.analy(pi.core.fit.18.8.3.288.lambda1)
+colMeans(fit.18.8.3.288.lambda1$kro.mle)
+colMeans(fit.18.8.3.288.lambda1$cse)
+colMeans(fit.18.8.3.288.lambda1$init.ai)
+colMeans(fit.18.8.3.288.lambda1$init.chol)
+colMeans(fit.18.8.3.288.lambda1$fit.ai.analy)
+colMeans(fit.18.8.3.288.lambda1$fit.chol.analy)
+
+###lambda=0.4
+### n=p/8
+fit.18.8.3.18.lambda2=stat.analy(pi.core.fit.18.8.3.18.lambda2)
+colMeans(fit.18.8.3.18.lambda2$kro.mle)
+colMeans(fit.18.8.3.18.lambda2$cse)
+colMeans(fit.18.8.3.18.lambda2$init.ai)
+colMeans(fit.18.8.3.18.lambda2$init.chol)
+colMeans(fit.18.8.3.18.lambda2$fit.ai.analy)
+colMeans(fit.18.8.3.18.lambda2$fit.chol.analy)
+
+### n=p/4
+fit.18.8.3.36.lambda2=stat.analy(pi.core.fit.18.8.3.36.lambda2)
+colMeans(fit.18.8.3.36.lambda2$kro.mle)
+colMeans(fit.18.8.3.36.lambda2$cse)
+colMeans(fit.18.8.3.36.lambda2$init.ai)
+colMeans(fit.18.8.3.36.lambda2$init.chol)
+colMeans(fit.18.8.3.36.lambda2$fit.ai.analy)
+colMeans(fit.18.8.3.36.lambda2$fit.chol.analy)
+
+### n=p/2
+fit.18.8.3.72.lambda2=stat.analy(pi.core.fit.18.8.3.72.lambda2)
+colMeans(fit.18.8.3.72.lambda2$kro.mle)
+colMeans(fit.18.8.3.72.lambda2$cse)
+colMeans(fit.18.8.3.72.lambda2$init.ai)
+colMeans(fit.18.8.3.72.lambda2$init.chol)
+colMeans(fit.18.8.3.72.lambda2$fit.ai.analy)
+colMeans(fit.18.8.3.72.lambda2$fit.chol.analy)
+
+### n=p
+fit.18.8.3.144.lambda2=stat.analy(pi.core.fit.18.8.3.144.lambda2)
+colMeans(fit.18.8.3.144.lambda2$kro.mle)
+colMeans(fit.18.8.3.144.lambda2$cse)
+colMeans(fit.18.8.3.144.lambda2$init.ai)
+colMeans(fit.18.8.3.144.lambda2$init.chol)
+colMeans(fit.18.8.3.144.lambda2$fit.ai.analy)
+colMeans(fit.18.8.3.144.lambda2$fit.chol.analy)
+
+### n=2p
+fit.18.8.3.288.lambda2=stat.analy(pi.core.fit.18.8.3.288.lambda2)
+colMeans(fit.18.8.3.288.lambda2$kro.mle)
+colMeans(fit.18.8.3.288.lambda2$cse)
+colMeans(fit.18.8.3.288.lambda2$init.ai)
+colMeans(fit.18.8.3.288.lambda2$init.chol)
+colMeans(fit.18.8.3.288.lambda2$fit.ai.analy)
+colMeans(fit.18.8.3.288.lambda2$fit.chol.analy)
+
+###lambda=0.6
+### n=p/8
+fit.18.8.3.18.lambda3=stat.analy(pi.core.fit.18.8.3.18.lambda3)
+colMeans(fit.18.8.3.18.lambda3$kro.mle)
+colMeans(fit.18.8.3.18.lambda3$cse)
+colMeans(fit.18.8.3.18.lambda3$init.ai)
+colMeans(fit.18.8.3.18.lambda3$init.chol)
+colMeans(fit.18.8.3.18.lambda3$fit.ai.analy)
+colMeans(fit.18.8.3.18.lambda3$fit.chol.analy)
+
+### n=p/4
+fit.18.8.3.36.lambda3=stat.analy(pi.core.fit.18.8.3.36.lambda3)
+colMeans(fit.18.8.3.36.lambda3$kro.mle)
+colMeans(fit.18.8.3.36.lambda3$cse)
+colMeans(fit.18.8.3.36.lambda3$init.ai)
+colMeans(fit.18.8.3.36.lambda3$init.chol)
+colMeans(fit.18.8.3.36.lambda3$fit.ai.analy)
+colMeans(fit.18.8.3.36.lambda3$fit.chol.analy)
+
+### n=p/2
+fit.18.8.3.72.lambda3=stat.analy(pi.core.fit.18.8.3.72.lambda3)
+colMeans(fit.18.8.3.72.lambda3$kro.mle)
+colMeans(fit.18.8.3.72.lambda3$cse)
+colMeans(fit.18.8.3.72.lambda3$init.ai)
+colMeans(fit.18.8.3.72.lambda3$init.chol)
+colMeans(fit.18.8.3.72.lambda3$fit.ai.analy)
+colMeans(fit.18.8.3.72.lambda3$fit.chol.analy)
+
+### n=p
+fit.18.8.3.144.lambda3=stat.analy(pi.core.fit.18.8.3.144.lambda3)
+colMeans(fit.18.8.3.144.lambda3$kro.mle)
+colMeans(fit.18.8.3.144.lambda3$cse)
+colMeans(fit.18.8.3.144.lambda3$init.ai)
+colMeans(fit.18.8.3.144.lambda3$init.chol)
+colMeans(fit.18.8.3.144.lambda3$fit.ai.analy)
+colMeans(fit.18.8.3.144.lambda3$fit.chol.analy)
+
+### n=2p
+fit.18.8.3.288.lambda3=stat.analy(pi.core.fit.18.8.3.288.lambda3)
+colMeans(fit.18.8.3.288.lambda3$kro.mle)
+colMeans(fit.18.8.3.288.lambda3$cse)
+colMeans(fit.18.8.3.288.lambda3$init.ai)
+colMeans(fit.18.8.3.288.lambda3$init.chol)
+colMeans(fit.18.8.3.288.lambda3$fit.ai.analy)
+colMeans(fit.18.8.3.288.lambda3$fit.chol.analy)
+
+###lambda=0.8
+### n=p/8
+fit.18.8.3.18.lambda4=stat.analy(pi.core.fit.18.8.3.18.lambda4)
+colMeans(fit.18.8.3.18.lambda4$kro.mle)
+colMeans(fit.18.8.3.18.lambda4$cse)
+colMeans(fit.18.8.3.18.lambda4$init.ai)
+colMeans(fit.18.8.3.18.lambda4$init.chol)
+colMeans(fit.18.8.3.18.lambda4$fit.ai.analy)
+colMeans(fit.18.8.3.18.lambda4$fit.chol.analy)
+
+### n=p/4
+fit.18.8.3.36.lambda4=stat.analy(pi.core.fit.18.8.3.36.lambda4)
+colMeans(fit.18.8.3.36.lambda4$kro.mle)
+colMeans(fit.18.8.3.36.lambda4$cse)
+colMeans(fit.18.8.3.36.lambda4$init.ai)
+colMeans(fit.18.8.3.36.lambda4$init.chol)
+colMeans(fit.18.8.3.36.lambda4$fit.ai.analy)
+colMeans(fit.18.8.3.36.lambda4$fit.chol.analy)
+
+### n=p/2
+fit.18.8.3.72.lambda4=stat.analy(pi.core.fit.18.8.3.72.lambda4)
+colMeans(fit.18.8.3.72.lambda4$kro.mle)
+colMeans(fit.18.8.3.72.lambda4$cse)
+colMeans(fit.18.8.3.72.lambda4$init.ai)
+colMeans(fit.18.8.3.72.lambda4$init.chol)
+colMeans(fit.18.8.3.72.lambda4$fit.ai.analy)
+colMeans(fit.18.8.3.72.lambda4$fit.chol.analy)
+
+### n=p
+fit.18.8.3.144.lambda4=stat.analy(pi.core.fit.18.8.3.144.lambda4)
+colMeans(fit.18.8.3.144.lambda4$kro.mle)
+colMeans(fit.18.8.3.144.lambda4$cse)
+colMeans(fit.18.8.3.144.lambda4$init.ai)
+colMeans(fit.18.8.3.144.lambda4$init.chol)
+colMeans(fit.18.8.3.144.lambda4$fit.ai.analy)
+colMeans(fit.18.8.3.144.lambda4$fit.chol.analy)
+
+### n=2p
+fit.18.8.3.288.lambda4=stat.analy(pi.core.fit.18.8.3.288.lambda4)
+colMeans(fit.18.8.3.288.lambda4$kro.mle)
+colMeans(fit.18.8.3.288.lambda4$cse)
+colMeans(fit.18.8.3.288.lambda4$init.ai)
+colMeans(fit.18.8.3.288.lambda4$init.chol)
+colMeans(fit.18.8.3.288.lambda4$fit.ai.analy)
+colMeans(fit.18.8.3.288.lambda4$fit.chol.analy)
+```
+
+```{r}
+##### boxplots of the relative spectral norms for K, C, and Sigma across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+### K
+
+K.analy.18.8.3.lambda1=plot.K.analy(fit.18.8.3.18.lambda1,fit.18.8.3.36.lambda1,fit.18.8.3.72.lambda1,fit.18.8.3.144.lambda1,fit.18.8.3.288.lambda1,c("18","36","72","144","288"),"lambda1")
+K.analy.18.8.3.lambda2=plot.K.analy(fit.18.8.3.18.lambda2,fit.18.8.3.36.lambda2,fit.18.8.3.72.lambda2,fit.18.8.3.144.lambda2,fit.18.8.3.288.lambda2,c("18","36","72","144","288"),"lambda2")
+K.analy.18.8.3.lambda3=plot.K.analy(fit.18.8.3.18.lambda3,fit.18.8.3.36.lambda3,fit.18.8.3.72.lambda3,fit.18.8.3.144.lambda3,fit.18.8.3.288.lambda3,c("18","36","72","144","288"),"lambda3")
+K.analy.18.8.3.lambda4=plot.K.analy(fit.18.8.3.18.lambda4,fit.18.8.3.36.lambda4,fit.18.8.3.72.lambda4,fit.18.8.3.144.lambda4,fit.18.8.3.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+K.analy.18.8.3=rbind(K.analy.18.8.3.lambda1,K.analy.18.8.3.lambda2,K.analy.18.8.3.lambda3,K.analy.18.8.3.lambda4)
+K.analy.18.8.3.lambda=factor(K.analy.18.8.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(K.analy.18.8.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+K.analy.18.8.3$lambda=K.analy.18.8.3.lambda
+
+png("./numerical.simul_gfcore/K.18.8.3.png",width=900,height=600)
+ggplot(K.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### C
+
+C.analy.18.8.3.lambda1=plot.C.analy(fit.18.8.3.18.lambda1,fit.18.8.3.36.lambda1,fit.18.8.3.72.lambda1,fit.18.8.3.144.lambda1,fit.18.8.3.288.lambda1,c("18","36","72","144","288"),"lambda1")
+C.analy.18.8.3.lambda2=plot.C.analy(fit.18.8.3.18.lambda2,fit.18.8.3.36.lambda2,fit.18.8.3.72.lambda2,fit.18.8.3.144.lambda2,fit.18.8.3.288.lambda2,c("18","36","72","144","288"),"lambda2")
+C.analy.18.8.3.lambda3=plot.C.analy(fit.18.8.3.18.lambda3,fit.18.8.3.36.lambda3,fit.18.8.3.72.lambda3,fit.18.8.3.144.lambda3,fit.18.8.3.288.lambda3,c("18","36","72","144","288"),"lambda3")
+C.analy.18.8.3.lambda4=plot.C.analy(fit.18.8.3.18.lambda4,fit.18.8.3.36.lambda4,fit.18.8.3.72.lambda4,fit.18.8.3.144.lambda4,fit.18.8.3.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+C.analy.18.8.3=rbind(C.analy.18.8.3.lambda1,C.analy.18.8.3.lambda2,C.analy.18.8.3.lambda3,C.analy.18.8.3.lambda4)
+C.analy.18.8.3.lambda=factor(C.analy.18.8.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(C.analy.18.8.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+C.analy.18.8.3$lambda=C.analy.18.8.3.lambda
+
+png("./numerical.simul_gfcore/C.18.8.3.png",width=900,height=600)
+ggplot(C.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### Sigma
+
+Sigma.analy.18.8.3.lambda1=plot.Sigma.analy(fit.18.8.3.18.lambda1,fit.18.8.3.36.lambda1,fit.18.8.3.72.lambda1,fit.18.8.3.144.lambda1,fit.18.8.3.288.lambda1,c("18","36","72","144","288"),"lambda1")
+Sigma.analy.18.8.3.lambda2=plot.Sigma.analy(fit.18.8.3.18.lambda2,fit.18.8.3.36.lambda2,fit.18.8.3.72.lambda2,fit.18.8.3.144.lambda2,fit.18.8.3.288.lambda2,c("18","36","72","144","288"),"lambda2")
+Sigma.analy.18.8.3.lambda3=plot.Sigma.analy(fit.18.8.3.18.lambda3,fit.18.8.3.36.lambda3,fit.18.8.3.72.lambda3,fit.18.8.3.144.lambda3,fit.18.8.3.288.lambda3,c("18","36","72","144","288"),"lambda3")
+Sigma.analy.18.8.3.lambda4=plot.Sigma.analy(fit.18.8.3.18.lambda4,fit.18.8.3.36.lambda4,fit.18.8.3.72.lambda4,fit.18.8.3.144.lambda4,fit.18.8.3.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+Sigma.analy.18.8.3=rbind(Sigma.analy.18.8.3.lambda1,Sigma.analy.18.8.3.lambda2,Sigma.analy.18.8.3.lambda3,Sigma.analy.18.8.3.lambda4)
+Sigma.analy.18.8.3.lambda=factor(Sigma.analy.18.8.3$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(Sigma.analy.18.8.3.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+Sigma.analy.18.8.3$lambda=Sigma.analy.18.8.3.lambda
+
+png("./numerical.simul_gfcore/Sigma.18.8.3.png",width=900,height=600)
+ggplot(Sigma.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+```
+
+# (p1,p2,r)=(16,12,5)
+
+```{r}
+##### mean of the relative spectral norms for $K$, $C$, and $\Sigma$ (in order) across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+###lambda=0.2
+### n=p/8
+fit.16.12.5.24.lambda1=stat.analy(pi.core.fit.16.12.5.24.lambda1)
+colMeans(fit.16.12.5.24.lambda1$kro.mle)
+colMeans(fit.16.12.5.24.lambda1$cse)
+colMeans(fit.16.12.5.24.lambda1$init.ai)
+colMeans(fit.16.12.5.24.lambda1$init.chol)
+colMeans(fit.16.12.5.24.lambda1$fit.ai.analy)
+colMeans(fit.16.12.5.24.lambda1$fit.chol.analy)
+
+### n=p/4
+fit.16.12.5.48.lambda1=stat.analy(pi.core.fit.16.12.5.48.lambda1)
+colMeans(fit.16.12.5.48.lambda1$kro.mle)
+colMeans(fit.16.12.5.48.lambda1$cse)
+colMeans(fit.16.12.5.48.lambda1$init.ai)
+colMeans(fit.16.12.5.48.lambda1$init.chol)
+colMeans(fit.16.12.5.48.lambda1$fit.ai.analy)
+colMeans(fit.16.12.5.48.lambda1$fit.chol.analy)
+
+### n=p/2
+fit.16.12.5.96.lambda1=stat.analy(pi.core.fit.16.12.5.96.lambda1)
+colMeans(fit.16.12.5.96.lambda1$kro.mle)
+colMeans(fit.16.12.5.96.lambda1$cse)
+colMeans(fit.16.12.5.96.lambda1$init.ai)
+colMeans(fit.16.12.5.96.lambda1$init.chol)
+colMeans(fit.16.12.5.96.lambda1$fit.ai.analy)
+colMeans(fit.16.12.5.96.lambda1$fit.chol.analy)
+
+### n=p
+fit.16.12.5.192.lambda1=stat.analy(pi.core.fit.16.12.5.192.lambda1)
+colMeans(fit.16.12.5.192.lambda1$kro.mle)
+colMeans(fit.16.12.5.192.lambda1$cse)
+colMeans(fit.16.12.5.192.lambda1$init.ai)
+colMeans(fit.16.12.5.192.lambda1$init.chol)
+colMeans(fit.16.12.5.192.lambda1$fit.ai.analy)
+colMeans(fit.16.12.5.192.lambda1$fit.chol.analy)
+
+### n=2p
+fit.16.12.5.384.lambda1=stat.analy(pi.core.fit.16.12.5.384.lambda1)
+colMeans(fit.16.12.5.384.lambda1$kro.mle)
+colMeans(fit.16.12.5.384.lambda1$cse)
+colMeans(fit.16.12.5.384.lambda1$init.ai)
+colMeans(fit.16.12.5.384.lambda1$init.chol)
+colMeans(fit.16.12.5.384.lambda1$fit.ai.analy)
+colMeans(fit.16.12.5.384.lambda1$fit.chol.analy)
+
+###lambda=0.4
+### n=p/8
+fit.16.12.5.24.lambda2=stat.analy(pi.core.fit.16.12.5.24.lambda2)
+colMeans(fit.16.12.5.24.lambda2$kro.mle)
+colMeans(fit.16.12.5.24.lambda2$cse)
+colMeans(fit.16.12.5.24.lambda2$init.ai)
+colMeans(fit.16.12.5.24.lambda2$init.chol)
+colMeans(fit.16.12.5.24.lambda2$fit.ai.analy)
+colMeans(fit.16.12.5.24.lambda2$fit.chol.analy)
+
+### n=p/4
+fit.16.12.5.48.lambda2=stat.analy(pi.core.fit.16.12.5.48.lambda2)
+colMeans(fit.16.12.5.48.lambda2$kro.mle)
+colMeans(fit.16.12.5.48.lambda2$cse)
+colMeans(fit.16.12.5.48.lambda2$init.ai)
+colMeans(fit.16.12.5.48.lambda2$init.chol)
+colMeans(fit.16.12.5.48.lambda2$fit.ai.analy)
+colMeans(fit.16.12.5.48.lambda2$fit.chol.analy)
+
+### n=p/2
+fit.16.12.5.96.lambda2=stat.analy(pi.core.fit.16.12.5.96.lambda2)
+colMeans(fit.16.12.5.96.lambda2$kro.mle)
+colMeans(fit.16.12.5.96.lambda2$cse)
+colMeans(fit.16.12.5.96.lambda2$init.ai)
+colMeans(fit.16.12.5.96.lambda2$init.chol)
+colMeans(fit.16.12.5.96.lambda2$fit.ai.analy)
+colMeans(fit.16.12.5.96.lambda2$fit.chol.analy)
+
+### n=p
+fit.16.12.5.192.lambda2=stat.analy(pi.core.fit.16.12.5.192.lambda2)
+colMeans(fit.16.12.5.192.lambda2$kro.mle)
+colMeans(fit.16.12.5.192.lambda2$cse)
+colMeans(fit.16.12.5.192.lambda2$init.ai)
+colMeans(fit.16.12.5.192.lambda2$init.chol)
+colMeans(fit.16.12.5.192.lambda2$fit.ai.analy)
+colMeans(fit.16.12.5.192.lambda2$fit.chol.analy)
+
+### n=2p
+fit.16.12.5.384.lambda2=stat.analy(pi.core.fit.16.12.5.384.lambda2)
+colMeans(fit.16.12.5.384.lambda2$kro.mle)
+colMeans(fit.16.12.5.384.lambda2$cse)
+colMeans(fit.16.12.5.384.lambda2$init.ai)
+colMeans(fit.16.12.5.384.lambda2$init.chol)
+colMeans(fit.16.12.5.384.lambda2$fit.ai.analy)
+colMeans(fit.16.12.5.384.lambda2$fit.chol.analy)
+
+###lambda=0.6
+### n=p/8
+fit.16.12.5.24.lambda3=stat.analy(pi.core.fit.16.12.5.24.lambda3)
+colMeans(fit.16.12.5.24.lambda3$kro.mle)
+colMeans(fit.16.12.5.24.lambda3$cse)
+colMeans(fit.16.12.5.24.lambda3$init.ai)
+colMeans(fit.16.12.5.24.lambda3$init.chol)
+colMeans(fit.16.12.5.24.lambda3$fit.ai.analy)
+colMeans(fit.16.12.5.24.lambda3$fit.chol.analy)
+
+### n=p/4
+fit.16.12.5.48.lambda3=stat.analy(pi.core.fit.16.12.5.48.lambda3)
+colMeans(fit.16.12.5.48.lambda3$kro.mle)
+colMeans(fit.16.12.5.48.lambda3$cse)
+colMeans(fit.16.12.5.48.lambda3$init.ai)
+colMeans(fit.16.12.5.48.lambda3$init.chol)
+colMeans(fit.16.12.5.48.lambda3$fit.ai.analy)
+colMeans(fit.16.12.5.48.lambda3$fit.chol.analy)
+
+### n=p/2
+fit.16.12.5.96.lambda3=stat.analy(pi.core.fit.16.12.5.96.lambda3)
+colMeans(fit.16.12.5.96.lambda3$kro.mle)
+colMeans(fit.16.12.5.96.lambda3$cse)
+colMeans(fit.16.12.5.96.lambda3$init.ai)
+colMeans(fit.16.12.5.96.lambda3$init.chol)
+colMeans(fit.16.12.5.96.lambda3$fit.ai.analy)
+colMeans(fit.16.12.5.96.lambda3$fit.chol.analy)
+
+### n=p
+fit.16.12.5.192.lambda3=stat.analy(pi.core.fit.16.12.5.192.lambda3)
+colMeans(fit.16.12.5.192.lambda3$kro.mle)
+colMeans(fit.16.12.5.192.lambda3$cse)
+colMeans(fit.16.12.5.192.lambda3$init.ai)
+colMeans(fit.16.12.5.192.lambda3$init.chol)
+colMeans(fit.16.12.5.192.lambda3$fit.ai.analy)
+colMeans(fit.16.12.5.192.lambda3$fit.chol.analy)
+
+### n=2p
+fit.16.12.5.384.lambda3=stat.analy(pi.core.fit.16.12.5.384.lambda3)
+colMeans(fit.16.12.5.384.lambda3$kro.mle)
+colMeans(fit.16.12.5.384.lambda3$cse)
+colMeans(fit.16.12.5.384.lambda3$init.ai)
+colMeans(fit.16.12.5.384.lambda3$init.chol)
+colMeans(fit.16.12.5.384.lambda3$fit.ai.analy)
+colMeans(fit.16.12.5.384.lambda3$fit.chol.analy)
+
+###lambda=0.8
+### n=p/8
+fit.16.12.5.24.lambda4=stat.analy(pi.core.fit.16.12.5.24.lambda4)
+colMeans(fit.16.12.5.24.lambda4$kro.mle)
+colMeans(fit.16.12.5.24.lambda4$cse)
+colMeans(fit.16.12.5.24.lambda4$init.ai)
+colMeans(fit.16.12.5.24.lambda4$init.chol)
+colMeans(fit.16.12.5.24.lambda4$fit.ai.analy)
+colMeans(fit.16.12.5.24.lambda4$fit.chol.analy)
+
+### n=p/4
+fit.16.12.5.48.lambda4=stat.analy(pi.core.fit.16.12.5.48.lambda4)
+colMeans(fit.16.12.5.48.lambda4$kro.mle)
+colMeans(fit.16.12.5.48.lambda4$cse)
+colMeans(fit.16.12.5.48.lambda4$init.ai)
+colMeans(fit.16.12.5.48.lambda4$init.chol)
+colMeans(fit.16.12.5.48.lambda4$fit.ai.analy)
+colMeans(fit.16.12.5.48.lambda4$fit.chol.analy)
+
+### n=p/2
+fit.16.12.5.96.lambda4=stat.analy(pi.core.fit.16.12.5.96.lambda4)
+colMeans(fit.16.12.5.96.lambda4$kro.mle)
+colMeans(fit.16.12.5.96.lambda4$cse)
+colMeans(fit.16.12.5.96.lambda4$init.ai)
+colMeans(fit.16.12.5.96.lambda4$init.chol)
+colMeans(fit.16.12.5.96.lambda4$fit.ai.analy)
+colMeans(fit.16.12.5.96.lambda4$fit.chol.analy)
+
+### n=p
+fit.16.12.5.192.lambda4=stat.analy(pi.core.fit.16.12.5.192.lambda4)
+colMeans(fit.16.12.5.192.lambda4$kro.mle)
+colMeans(fit.16.12.5.192.lambda4$cse)
+colMeans(fit.16.12.5.192.lambda4$init.ai)
+colMeans(fit.16.12.5.192.lambda4$init.chol)
+colMeans(fit.16.12.5.192.lambda4$fit.ai.analy)
+colMeans(fit.16.12.5.192.lambda4$fit.chol.analy)
+
+### n=2p
+fit.16.12.5.384.lambda4=stat.analy(pi.core.fit.16.12.5.384.lambda4)
+colMeans(fit.16.12.5.384.lambda4$kro.mle)
+colMeans(fit.16.12.5.384.lambda4$cse)
+colMeans(fit.16.12.5.384.lambda4$init.ai)
+colMeans(fit.16.12.5.384.lambda4$init.chol)
+colMeans(fit.16.12.5.384.lambda4$fit.ai.analy)
+colMeans(fit.16.12.5.384.lambda4$fit.chol.analy)
+```
+
+
+```{r}
+##### boxplots of the relative spectral norms for K, C, and Sigma across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+### K
+
+K.analy.16.12.5.lambda1=plot.K.analy(fit.16.12.5.24.lambda1,fit.16.12.5.48.lambda1,fit.16.12.5.96.lambda1,fit.16.12.5.192.lambda1,fit.16.12.5.384.lambda1,c("24","48","96","192","384"),"lambda1")
+K.analy.16.12.5.lambda2=plot.K.analy(fit.16.12.5.24.lambda2,fit.16.12.5.48.lambda2,fit.16.12.5.96.lambda2,fit.16.12.5.192.lambda2,fit.16.12.5.384.lambda2,c("24","48","96","192","384"),"lambda2")
+K.analy.16.12.5.lambda3=plot.K.analy(fit.16.12.5.24.lambda3,fit.16.12.5.48.lambda3,fit.16.12.5.96.lambda3,fit.16.12.5.192.lambda3,fit.16.12.5.384.lambda3,c("24","48","96","192","384"),"lambda3")
+K.analy.16.12.5.lambda4=plot.K.analy(fit.16.12.5.24.lambda4,fit.16.12.5.48.lambda4,fit.16.12.5.96.lambda4,fit.16.12.5.192.lambda4,fit.16.12.5.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+K.analy.16.12.5=rbind(K.analy.16.12.5.lambda1,K.analy.16.12.5.lambda2,K.analy.16.12.5.lambda3,K.analy.16.12.5.lambda4)
+K.analy.16.12.5.lambda=factor(K.analy.16.12.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(K.analy.16.12.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+K.analy.16.12.5$lambda=K.analy.16.12.5.lambda
+
+png("./numerical.simul_gfcore/K.16.12.5.png",width=900,height=600)
+ggplot(K.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### C
+
+C.analy.16.12.5.lambda1=plot.C.analy(fit.16.12.5.24.lambda1,fit.16.12.5.48.lambda1,fit.16.12.5.96.lambda1,fit.16.12.5.192.lambda1,fit.16.12.5.384.lambda1,c("24","48","96","192","384"),"lambda1")
+C.analy.16.12.5.lambda2=plot.C.analy(fit.16.12.5.24.lambda2,fit.16.12.5.48.lambda2,fit.16.12.5.96.lambda2,fit.16.12.5.192.lambda2,fit.16.12.5.384.lambda2,c("24","48","96","192","384"),"lambda2")
+C.analy.16.12.5.lambda3=plot.C.analy(fit.16.12.5.24.lambda3,fit.16.12.5.48.lambda3,fit.16.12.5.96.lambda3,fit.16.12.5.192.lambda3,fit.16.12.5.384.lambda3,c("24","48","96","192","384"),"lambda3")
+C.analy.16.12.5.lambda4=plot.C.analy(fit.16.12.5.24.lambda4,fit.16.12.5.48.lambda4,fit.16.12.5.96.lambda4,fit.16.12.5.192.lambda4,fit.16.12.5.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+C.analy.16.12.5=rbind(C.analy.16.12.5.lambda1,C.analy.16.12.5.lambda2,C.analy.16.12.5.lambda3,C.analy.16.12.5.lambda4)
+C.analy.16.12.5.lambda=factor(C.analy.16.12.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(C.analy.16.12.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+C.analy.16.12.5$lambda=C.analy.16.12.5.lambda
+
+png("./numerical.simul_gfcore/C.16.12.5.png",width=900,height=600)
+ggplot(C.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### Sigma
+
+Sigma.analy.16.12.5.lambda1=plot.Sigma.analy(fit.16.12.5.24.lambda1,fit.16.12.5.48.lambda1,fit.16.12.5.96.lambda1,fit.16.12.5.192.lambda1,fit.16.12.5.384.lambda1,c("24","48","96","192","384"),"lambda1")
+Sigma.analy.16.12.5.lambda2=plot.Sigma.analy(fit.16.12.5.24.lambda2,fit.16.12.5.48.lambda2,fit.16.12.5.96.lambda2,fit.16.12.5.192.lambda2,fit.16.12.5.384.lambda2,c("24","48","96","192","384"),"lambda2")
+Sigma.analy.16.12.5.lambda3=plot.Sigma.analy(fit.16.12.5.24.lambda3,fit.16.12.5.48.lambda3,fit.16.12.5.96.lambda3,fit.16.12.5.192.lambda3,fit.16.12.5.384.lambda3,c("24","48","96","192","384"),"lambda3")
+Sigma.analy.16.12.5.lambda4=plot.Sigma.analy(fit.16.12.5.24.lambda4,fit.16.12.5.48.lambda4,fit.16.12.5.96.lambda4,fit.16.12.5.192.lambda4,fit.16.12.5.384.lambda4,c("24","48","96","192","384"),"lambda4")
+
+Sigma.analy.16.12.5=rbind(Sigma.analy.16.12.5.lambda1,Sigma.analy.16.12.5.lambda2,Sigma.analy.16.12.5.lambda3,Sigma.analy.16.12.5.lambda4)
+Sigma.analy.16.12.5.lambda=factor(Sigma.analy.16.12.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(Sigma.analy.16.12.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+Sigma.analy.16.12.5$lambda=Sigma.analy.16.12.5.lambda
+
+png("./numerical.simul_gfcore/Sigma.16.12.5.png",width=900,height=600)
+ggplot(Sigma.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+```
+
+# (p1,p2,r)=(18,8,5)
+
+```{r}
+##### mean of the relative spectral norms for $K$, $C$, and $\Sigma$ (in order) across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+###lambda=0.2
+### n=p/8
+fit.18.8.5.18.lambda1=stat.analy(pi.core.fit.18.8.5.18.lambda1)
+colMeans(fit.18.8.5.18.lambda1$kro.mle)
+colMeans(fit.18.8.5.18.lambda1$cse)
+colMeans(fit.18.8.5.18.lambda1$init.ai)
+colMeans(fit.18.8.5.18.lambda1$init.chol)
+colMeans(fit.18.8.5.18.lambda1$fit.ai.analy)
+colMeans(fit.18.8.5.18.lambda1$fit.chol.analy)
+
+### n=p/4
+fit.18.8.5.36.lambda1=stat.analy(pi.core.fit.18.8.5.36.lambda1)
+colMeans(fit.18.8.5.36.lambda1$kro.mle)
+colMeans(fit.18.8.5.36.lambda1$cse)
+colMeans(fit.18.8.5.36.lambda1$init.ai)
+colMeans(fit.18.8.5.36.lambda1$init.chol)
+colMeans(fit.18.8.5.36.lambda1$fit.ai.analy)
+colMeans(fit.18.8.5.36.lambda1$fit.chol.analy)
+
+### n=p/2
+fit.18.8.5.72.lambda1=stat.analy(pi.core.fit.18.8.5.72.lambda1)
+colMeans(fit.18.8.5.72.lambda1$kro.mle)
+colMeans(fit.18.8.5.72.lambda1$cse)
+colMeans(fit.18.8.5.72.lambda1$init.ai)
+colMeans(fit.18.8.5.72.lambda1$init.chol)
+colMeans(fit.18.8.5.72.lambda1$fit.ai.analy)
+colMeans(fit.18.8.5.72.lambda1$fit.chol.analy)
+
+### n=p
+fit.18.8.5.144.lambda1=stat.analy(pi.core.fit.18.8.5.144.lambda1)
+colMeans(fit.18.8.5.144.lambda1$kro.mle)
+colMeans(fit.18.8.5.144.lambda1$cse)
+colMeans(fit.18.8.5.144.lambda1$init.ai)
+colMeans(fit.18.8.5.144.lambda1$init.chol)
+colMeans(fit.18.8.5.144.lambda1$fit.ai.analy)
+colMeans(fit.18.8.5.144.lambda1$fit.chol.analy)
+
+### n=2p
+fit.18.8.5.288.lambda1=stat.analy(pi.core.fit.18.8.5.288.lambda1)
+colMeans(fit.18.8.5.288.lambda1$kro.mle)
+colMeans(fit.18.8.5.288.lambda1$cse)
+colMeans(fit.18.8.5.288.lambda1$init.ai)
+colMeans(fit.18.8.5.288.lambda1$init.chol)
+colMeans(fit.18.8.5.288.lambda1$fit.ai.analy)
+colMeans(fit.18.8.5.288.lambda1$fit.chol.analy)
+
+###lambda=0.4
+### n=p/8
+fit.18.8.5.18.lambda2=stat.analy(pi.core.fit.18.8.5.18.lambda2)
+colMeans(fit.18.8.5.18.lambda2$kro.mle)
+colMeans(fit.18.8.5.18.lambda2$cse)
+colMeans(fit.18.8.5.18.lambda2$init.ai)
+colMeans(fit.18.8.5.18.lambda2$init.chol)
+colMeans(fit.18.8.5.18.lambda2$fit.ai.analy)
+colMeans(fit.18.8.5.18.lambda2$fit.chol.analy)
+
+### n=p/4
+fit.18.8.5.36.lambda2=stat.analy(pi.core.fit.18.8.5.36.lambda2)
+colMeans(fit.18.8.5.36.lambda2$kro.mle)
+colMeans(fit.18.8.5.36.lambda2$cse)
+colMeans(fit.18.8.5.36.lambda2$init.ai)
+colMeans(fit.18.8.5.36.lambda2$init.chol)
+colMeans(fit.18.8.5.36.lambda2$fit.ai.analy)
+colMeans(fit.18.8.5.36.lambda2$fit.chol.analy)
+
+### n=p/2
+fit.18.8.5.72.lambda2=stat.analy(pi.core.fit.18.8.5.72.lambda2)
+colMeans(fit.18.8.5.72.lambda2$kro.mle)
+colMeans(fit.18.8.5.72.lambda2$cse)
+colMeans(fit.18.8.5.72.lambda2$init.ai)
+colMeans(fit.18.8.5.72.lambda2$init.chol)
+colMeans(fit.18.8.5.72.lambda2$fit.ai.analy)
+colMeans(fit.18.8.5.72.lambda2$fit.chol.analy)
+
+### n=p
+fit.18.8.5.144.lambda2=stat.analy(pi.core.fit.18.8.5.144.lambda2)
+colMeans(fit.18.8.5.144.lambda2$kro.mle)
+colMeans(fit.18.8.5.144.lambda2$cse)
+colMeans(fit.18.8.5.144.lambda2$init.ai)
+colMeans(fit.18.8.5.144.lambda2$init.chol)
+colMeans(fit.18.8.5.144.lambda2$fit.ai.analy)
+colMeans(fit.18.8.5.144.lambda2$fit.chol.analy)
+
+### n=2p
+fit.18.8.5.288.lambda2=stat.analy(pi.core.fit.18.8.5.288.lambda2)
+colMeans(fit.18.8.5.288.lambda2$kro.mle)
+colMeans(fit.18.8.5.288.lambda2$cse)
+colMeans(fit.18.8.5.288.lambda2$init.ai)
+colMeans(fit.18.8.5.288.lambda2$init.chol)
+colMeans(fit.18.8.5.288.lambda2$fit.ai.analy)
+colMeans(fit.18.8.5.288.lambda2$fit.chol.analy)
+
+###lambda=0.6
+### n=p/8
+fit.18.8.5.18.lambda3=stat.analy(pi.core.fit.18.8.5.18.lambda3)
+colMeans(fit.18.8.5.18.lambda3$kro.mle)
+colMeans(fit.18.8.5.18.lambda3$cse)
+colMeans(fit.18.8.5.18.lambda3$init.ai)
+colMeans(fit.18.8.5.18.lambda3$init.chol)
+colMeans(fit.18.8.5.18.lambda3$fit.ai.analy)
+colMeans(fit.18.8.5.18.lambda3$fit.chol.analy)
+
+### n=p/4
+fit.18.8.5.36.lambda3=stat.analy(pi.core.fit.18.8.5.36.lambda3)
+colMeans(fit.18.8.5.36.lambda3$kro.mle)
+colMeans(fit.18.8.5.36.lambda3$cse)
+colMeans(fit.18.8.5.36.lambda3$init.ai)
+colMeans(fit.18.8.5.36.lambda3$init.chol)
+colMeans(fit.18.8.5.36.lambda3$fit.ai.analy)
+colMeans(fit.18.8.5.36.lambda3$fit.chol.analy)
+
+### n=p/2
+fit.18.8.5.72.lambda3=stat.analy(pi.core.fit.18.8.5.72.lambda3)
+colMeans(fit.18.8.5.72.lambda3$kro.mle)
+colMeans(fit.18.8.5.72.lambda3$cse)
+colMeans(fit.18.8.5.72.lambda3$init.ai)
+colMeans(fit.18.8.5.72.lambda3$init.chol)
+colMeans(fit.18.8.5.72.lambda3$fit.ai.analy)
+colMeans(fit.18.8.5.72.lambda3$fit.chol.analy)
+
+### n=p
+fit.18.8.5.144.lambda3=stat.analy(pi.core.fit.18.8.5.144.lambda3)
+colMeans(fit.18.8.5.144.lambda3$kro.mle)
+colMeans(fit.18.8.5.144.lambda3$cse)
+colMeans(fit.18.8.5.144.lambda3$init.ai)
+colMeans(fit.18.8.5.144.lambda3$init.chol)
+colMeans(fit.18.8.5.144.lambda3$fit.ai.analy)
+colMeans(fit.18.8.5.144.lambda3$fit.chol.analy)
+
+### n=2p
+fit.18.8.5.288.lambda3=stat.analy(pi.core.fit.18.8.5.288.lambda3)
+colMeans(fit.18.8.5.288.lambda3$kro.mle)
+colMeans(fit.18.8.5.288.lambda3$cse)
+colMeans(fit.18.8.5.288.lambda3$init.ai)
+colMeans(fit.18.8.5.288.lambda3$init.chol)
+colMeans(fit.18.8.5.288.lambda3$fit.ai.analy)
+colMeans(fit.18.8.5.288.lambda3$fit.chol.analy)
+
+###lambda=0.8
+### n=p/8
+fit.18.8.5.18.lambda4=stat.analy(pi.core.fit.18.8.5.18.lambda4)
+colMeans(fit.18.8.5.18.lambda4$kro.mle)
+colMeans(fit.18.8.5.18.lambda4$cse)
+colMeans(fit.18.8.5.18.lambda4$init.ai)
+colMeans(fit.18.8.5.18.lambda4$init.chol)
+colMeans(fit.18.8.5.18.lambda4$fit.ai.analy)
+colMeans(fit.18.8.5.18.lambda4$fit.chol.analy)
+
+### n=p/4
+fit.18.8.5.36.lambda4=stat.analy(pi.core.fit.18.8.5.36.lambda4)
+colMeans(fit.18.8.5.36.lambda4$kro.mle)
+colMeans(fit.18.8.5.36.lambda4$cse)
+colMeans(fit.18.8.5.36.lambda4$init.ai)
+colMeans(fit.18.8.5.36.lambda4$init.chol)
+colMeans(fit.18.8.5.36.lambda4$fit.ai.analy)
+colMeans(fit.18.8.5.36.lambda4$fit.chol.analy)
+
+### n=p/2
+fit.18.8.5.72.lambda4=stat.analy(pi.core.fit.18.8.5.72.lambda4)
+colMeans(fit.18.8.5.72.lambda4$kro.mle)
+colMeans(fit.18.8.5.72.lambda4$cse)
+colMeans(fit.18.8.5.72.lambda4$init.ai)
+colMeans(fit.18.8.5.72.lambda4$init.chol)
+colMeans(fit.18.8.5.72.lambda4$fit.ai.analy)
+colMeans(fit.18.8.5.72.lambda4$fit.chol.analy)
+
+### n=p
+fit.18.8.5.144.lambda4=stat.analy(pi.core.fit.18.8.5.144.lambda4)
+colMeans(fit.18.8.5.144.lambda4$kro.mle)
+colMeans(fit.18.8.5.144.lambda4$cse)
+colMeans(fit.18.8.5.144.lambda4$init.ai)
+colMeans(fit.18.8.5.144.lambda4$init.chol)
+colMeans(fit.18.8.5.144.lambda4$fit.ai.analy)
+colMeans(fit.18.8.5.144.lambda4$fit.chol.analy)
+
+### n=2p
+fit.18.8.5.288.lambda4=stat.analy(pi.core.fit.18.8.5.288.lambda4)
+colMeans(fit.18.8.5.288.lambda4$kro.mle)
+colMeans(fit.18.8.5.288.lambda4$cse)
+colMeans(fit.18.8.5.288.lambda4$init.ai)
+colMeans(fit.18.8.5.288.lambda4$init.chol)
+colMeans(fit.18.8.5.288.lambda4$fit.ai.analy)
+colMeans(fit.18.8.5.288.lambda4$fit.chol.analy)
+```
+
+
+```{r}
+##### boxplots of the relative spectral norms for K, C, and Sigma across 100 iterations 
+##### under different choices of the sample size $n$ and the value of non-spiked eigenvalue $\lambda$.  
+### K
+
+K.analy.18.8.5.lambda1=plot.K.analy(fit.18.8.5.18.lambda1,fit.18.8.5.36.lambda1,fit.18.8.5.72.lambda1,fit.18.8.5.144.lambda1,fit.18.8.5.288.lambda1,c("18","36","72","144","288"),"lambda1")
+K.analy.18.8.5.lambda2=plot.K.analy(fit.18.8.5.18.lambda2,fit.18.8.5.36.lambda2,fit.18.8.5.72.lambda2,fit.18.8.5.144.lambda2,fit.18.8.5.288.lambda2,c("18","36","72","144","288"),"lambda2")
+K.analy.18.8.5.lambda3=plot.K.analy(fit.18.8.5.18.lambda3,fit.18.8.5.36.lambda3,fit.18.8.5.72.lambda3,fit.18.8.5.144.lambda3,fit.18.8.5.288.lambda3,c("18","36","72","144","288"),"lambda3")
+K.analy.18.8.5.lambda4=plot.K.analy(fit.18.8.5.18.lambda4,fit.18.8.5.36.lambda4,fit.18.8.5.72.lambda4,fit.18.8.5.144.lambda4,fit.18.8.5.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+K.analy.18.8.5=rbind(K.analy.18.8.5.lambda1,K.analy.18.8.5.lambda2,K.analy.18.8.5.lambda3,K.analy.18.8.5.lambda4)
+K.analy.18.8.5.lambda=factor(K.analy.18.8.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(K.analy.18.8.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+K.analy.18.8.5$lambda=K.analy.18.8.5.lambda
+
+png("./numerical.simul_gfcore/K.18.8.5.png",width=900,height=600)
+ggplot(K.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Separable Component Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### C
+
+C.analy.18.8.5.lambda1=plot.C.analy(fit.18.8.5.18.lambda1,fit.18.8.5.36.lambda1,fit.18.8.5.72.lambda1,fit.18.8.5.144.lambda1,fit.18.8.5.288.lambda1,c("18","36","72","144","288"),"lambda1")
+C.analy.18.8.5.lambda2=plot.C.analy(fit.18.8.5.18.lambda2,fit.18.8.5.36.lambda2,fit.18.8.5.72.lambda2,fit.18.8.5.144.lambda2,fit.18.8.5.288.lambda2,c("18","36","72","144","288"),"lambda2")
+C.analy.18.8.5.lambda3=plot.C.analy(fit.18.8.5.18.lambda3,fit.18.8.5.36.lambda3,fit.18.8.5.72.lambda3,fit.18.8.5.144.lambda3,fit.18.8.5.288.lambda3,c("18","36","72","144","288"),"lambda3")
+C.analy.18.8.5.lambda4=plot.C.analy(fit.18.8.5.18.lambda4,fit.18.8.5.36.lambda4,fit.18.8.5.72.lambda4,fit.18.8.5.144.lambda4,fit.18.8.5.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+C.analy.18.8.5=rbind(C.analy.18.8.5.lambda1,C.analy.18.8.5.lambda2,C.analy.18.8.5.lambda3,C.analy.18.8.5.lambda4)
+C.analy.18.8.5.lambda=factor(C.analy.18.8.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(C.analy.18.8.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+C.analy.18.8.5$lambda=C.analy.18.8.5.lambda
+
+png("./numerical.simul_gfcore/C.18.8.5.png",width=900,height=600)
+ggplot(C.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Core Component Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+
+### Sigma
+
+Sigma.analy.18.8.5.lambda1=plot.Sigma.analy(fit.18.8.5.18.lambda1,fit.18.8.5.36.lambda1,fit.18.8.5.72.lambda1,fit.18.8.5.144.lambda1,fit.18.8.5.288.lambda1,c("18","36","72","144","288"),"lambda1")
+Sigma.analy.18.8.5.lambda2=plot.Sigma.analy(fit.18.8.5.18.lambda2,fit.18.8.5.36.lambda2,fit.18.8.5.72.lambda2,fit.18.8.5.144.lambda2,fit.18.8.5.288.lambda2,c("18","36","72","144","288"),"lambda2")
+Sigma.analy.18.8.5.lambda3=plot.Sigma.analy(fit.18.8.5.18.lambda3,fit.18.8.5.36.lambda3,fit.18.8.5.72.lambda3,fit.18.8.5.144.lambda3,fit.18.8.5.288.lambda3,c("18","36","72","144","288"),"lambda3")
+Sigma.analy.18.8.5.lambda4=plot.Sigma.analy(fit.18.8.5.18.lambda4,fit.18.8.5.36.lambda4,fit.18.8.5.72.lambda4,fit.18.8.5.144.lambda4,fit.18.8.5.288.lambda4,c("18","36","72","144","288"),"lambda4")
+
+Sigma.analy.18.8.5=rbind(Sigma.analy.18.8.5.lambda1,Sigma.analy.18.8.5.lambda2,Sigma.analy.18.8.5.lambda3,Sigma.analy.18.8.5.lambda4)
+Sigma.analy.18.8.5.lambda=factor(Sigma.analy.18.8.5$lambda,levels=c("lambda1","lambda2","lambda3","lambda4"))
+levels(Sigma.analy.18.8.5.lambda)=c(TeX("$\\lambda=0.2$"),TeX("$\\lambda=0.4$"),TeX("$\\lambda=0.6$"),TeX("$\\lambda=0.8$"))
+Sigma.analy.18.8.5$lambda=Sigma.analy.18.8.5.lambda
+
+png("./numerical.simul_gfcore/Sigma.18.8.5.png",width=900,height=600)
+ggplot(Sigma.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+dev.off()
+```
