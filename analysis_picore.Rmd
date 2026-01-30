@@ -5,13 +5,14 @@ date: "2026-01-18"
 output: pdf_document
 ---
 
-We provide the summary of the numerical simulations under partial-isotropy core covariance model (see Section 7.1 for details). 
+We provide the summary of the numerical simulations under partial-isotropy core covariance model (see Section 7 for details). 
 
 ```{r}
 ################ Libraries
 
 library(tidyverse)
 library(latex2exp)
+library(ggpubr)
 
 ################ Loading the simulation results
 file.list=list.files(path="./numerical.simul_picore",pattern=".rds")
@@ -82,7 +83,7 @@ conv.analy=function(fit1,fit2,fit3,fit4,fit5,name){
 
 plot.K.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
-  method=rep(c("Base-AI","PICSE-AI","PICSE-Chol"),each=100)
+  method=rep(c("Base-AI","PI-AI","PI-Chol"),each=100)
   
   dat1=tibble(stat=c(fit1$init.ai[,1],fit1$fit.ai.analy[,1],fit1$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[1],300),lambda=rep(lambda,300))
   dat2=tibble(stat=c(fit2$init.ai[,1],fit2$fit.ai.analy[,1],fit2$fit.chol.analy[,1]),Method=method,samp.size=rep(samp.size[2],300),lambda=rep(lambda,300))
@@ -92,13 +93,13 @@ plot.K.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
   dat=rbind(dat1,dat2,dat3,dat4,dat5)
   dat$samp.size=factor(dat$samp.size,levels=samp.size)
-  dat$Method=factor(dat$Method,levels=c("Base-AI","PICSE-AI","PICSE-Chol"))
+  dat$Method=factor(dat$Method,levels=c("Base-AI","PI-AI","PI-Chol"))
   return(dat)
 }
 
 plot.C.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
-  method=rep(c("CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"),each=100)
+  method=rep(c("CSE","Base-AI","Base-Chol","PI-AI","PI-Chol"),each=100)
   
   dat1=tibble(stat=c(fit1$cse[,2],fit1$init.ai[,2],fit1$init.chol[,2],
                      fit1$fit.ai.analy[,2],fit1$fit.chol.analy[,2]),Method=method,samp.size=rep(samp.size[1],500),
@@ -118,14 +119,14 @@ plot.C.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
   dat=rbind(dat1,dat2,dat3,dat4,dat5)
   dat$samp.size=factor(dat$samp.size,levels=samp.size)
-  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","BASE-Chol","PICSE-AI","PICSE-Chol"))
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","Base-Chol","PI-AI","PI-Chol"))
   return(dat)
   
 }
 
 plot.Sigma.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
-  method=rep(c("KMLE","CSE","Base-AI","PICSE-AI","PICSE-Chol"),each=100)
+  method=rep(c("KMLE","CSE","Base-AI","PI-AI","PI-Chol"),each=100)
   
   dat1=tibble(stat=c(fit1$kro.mle[,3],fit1$cse[,3],fit1$init.ai[,3],
                      fit1$fit.ai.analy[,3],fit1$fit.chol.analy[,3]),Method=method,samp.size=rep(samp.size[1],500),
@@ -146,7 +147,7 @@ plot.Sigma.analy=function(fit1,fit2,fit3,fit4,fit5,samp.size,lambda){
   
   dat=rbind(dat1,dat2,dat3,dat4,dat5)
   dat$samp.size=factor(dat$samp.size,levels=samp.size)
-  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","PICSE-AI","PICSE-Chol"))
+  dat$Method=factor(dat$Method,levels=c("KMLE","CSE","Base-AI","PI-AI","PI-Chol"))
   return(dat)
   
 }
@@ -1148,3 +1149,231 @@ ggplot(Sigma.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxpl
   ggtitle(TeX("Sigma Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
 dev.off()
 ```
+
+# Combining figures
+
+```{r}
+### K
+
+K1=ggplot(K.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$K$ Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+K2=ggplot(K.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$K$ Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+K3=ggplot(K.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$K$ Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+K4=ggplot(K.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$K$ Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+
+png("./numerical.simul_picore/K.rank3.png",width=900,height=600)
+ggarrange(K1,K3,ncol=2,common.legend=TRUE)
+dev.off()
+
+png("./numerical.simul_picore/K.rank5.png",width=900,height=600)
+ggarrange(K2,K4,ncol=2,common.legend=TRUE)
+dev.off()
+
+### C
+
+C1=ggplot(C.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$C$ Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+C2=ggplot(C.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$C$ Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+C3=ggplot(C.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$C$ Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+C4=ggplot(C.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$C$ Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+
+png("./numerical.simul_picore/C.rank3.png",width=900,height=600)
+ggarrange(C1,C3,ncol=2,common.legend=TRUE)
+dev.off()
+
+png("./numerical.simul_picore/C.rank5.png",width=900,height=600)
+ggarrange(C2,C4,ncol=2,common.legend=TRUE)
+dev.off()
+
+### Sigma
+
+sigma1=ggplot(Sigma.analy.16.12.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$\\Sigma$ Consistency : $(p_1,p_2,r)=(16,12,3)$"))+theme(plot.title=element_text(hjust=0.5))
+sigma2=ggplot(Sigma.analy.16.12.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$\\Sigma$ Consistency : $(p_1,p_2,r)=(16,12,5)$"))+theme(plot.title=element_text(hjust=0.5))
+sigma3=ggplot(Sigma.analy.18.8.3,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$\\Sigma$ Consistency : $(p_1,p_2,r)=(18,8,3)$"))+theme(plot.title=element_text(hjust=0.5))
+sigma4=ggplot(Sigma.analy.18.8.5,mapping=aes(x=samp.size,y=stat,col=Method))+geom_boxplot()+facet_wrap(.~lambda,labeller=label_parsed)+
+  theme_bw()+xlab("Sample Size")+ylab("Relative Norm")+
+  ggtitle(TeX("$\\Sigma$ Consistency : $(p_1,p_2,r)=(18,8,5)$"))+theme(plot.title=element_text(hjust=0.5))
+
+png("./numerical.simul_picore/Sigma.rank3.png",width=900,height=600)
+ggarrange(sigma1,sigma3,ncol=2,common.legend=TRUE)
+dev.off()
+
+png("./numerical.simul_picore/Sigma.rank5.png",width=900,height=600)
+ggarrange(sigma2,sigma4,ncol=2,common.legend=TRUE)
+dev.off()
+```
+
+
+# Lambda
+
+
+```{r}
+### Analysis of lambda estimation for CSE, Base-AI, Base-Chol
+lambda1=0.2; lambda2=0.4; lambda3=0.6; lambda4=0.8
+
+
+lambda.analy=function(fit1,fit2,fit3,fit4,fit5,lambda){
+  
+  result=matrix(0,3,5)
+  
+  pi.lambda.ai=function(fit){
+    
+    fit=fit$pi.core.ai
+    temp=NULL
+    for(i in 1:100){
+      temp=c(temp,fit[[i]]$lambda)
+    }
+    return(temp)
+  }
+  
+  pi.lambda.chol=function(fit){
+    
+    fit=fit$pi.core.chol
+    temp=NULL
+    for(i in 1:100){
+      temp=c(temp,fit[[i]]$lambda)
+    }
+    return(temp)
+  }
+  
+  fit.summary=function(fit){
+    temp1=mean(abs(fit$cse[,"w"]-lambda))
+    temp2=mean(abs(pi.lambda.ai(fit)-lambda))
+    temp3=mean(abs(pi.lambda.chol(fit)-lambda))
+    return(c(temp1,temp2,temp3))
+  }
+  
+  result[,1]=fit.summary(fit1); result[,2]=fit.summary(fit2)
+  result[,3]=fit.summary(fit3); result[,4]=fit.summary(fit4)
+  result[,5]=fit.summary(fit5)
+  rownames(result)=c("CSE","Base-AI","Base-Chol")
+  colnames(result)=c("p/8","p/4","p/2","p","2p")
+  return(result)
+}
+
+lambda.16.12.3.lambda1=lambda.analy(pi.core.fit.16.12.3.24.lambda1,pi.core.fit.16.12.3.48.lambda1,
+             pi.core.fit.16.12.3.96.lambda1,pi.core.fit.16.12.3.192.lambda1,
+             pi.core.fit.16.12.3.384.lambda1,lambda1)
+lambda.16.12.3.lambda2=lambda.analy(pi.core.fit.16.12.3.24.lambda2,pi.core.fit.16.12.3.48.lambda2,
+             pi.core.fit.16.12.3.96.lambda2,pi.core.fit.16.12.3.192.lambda2,
+             pi.core.fit.16.12.3.384.lambda2,lambda2)
+lambda.16.12.3.lambda3=lambda.analy(pi.core.fit.16.12.3.24.lambda3,pi.core.fit.16.12.3.48.lambda3,
+             pi.core.fit.16.12.3.96.lambda3,pi.core.fit.16.12.3.192.lambda3,
+             pi.core.fit.16.12.3.384.lambda3,lambda3)
+lambda.16.12.3.lambda4=lambda.analy(pi.core.fit.16.12.3.24.lambda4,pi.core.fit.16.12.3.48.lambda4,
+             pi.core.fit.16.12.3.96.lambda4,pi.core.fit.16.12.3.192.lambda4,
+             pi.core.fit.16.12.3.384.lambda4,lambda4)
+lambda.16.12.3=rbind(lambda.16.12.3.lambda1,lambda.16.12.3.lambda2,lambda.16.12.3.lambda3,lambda.16.12.3.lambda4)
+
+lambda.18.8.3.lambda1=lambda.analy(pi.core.fit.18.8.3.18.lambda1,pi.core.fit.18.8.3.36.lambda1,
+             pi.core.fit.18.8.3.72.lambda1,pi.core.fit.18.8.3.144.lambda1,
+             pi.core.fit.18.8.3.288.lambda1,lambda1)
+lambda.18.8.3.lambda2=lambda.analy(pi.core.fit.18.8.3.18.lambda2,pi.core.fit.18.8.3.36.lambda2,
+             pi.core.fit.18.8.3.72.lambda2,pi.core.fit.18.8.3.144.lambda2,
+             pi.core.fit.18.8.3.288.lambda2,lambda2)
+lambda.18.8.3.lambda3=lambda.analy(pi.core.fit.18.8.3.18.lambda3,pi.core.fit.18.8.3.36.lambda3,
+             pi.core.fit.18.8.3.72.lambda3,pi.core.fit.18.8.3.144.lambda3,
+             pi.core.fit.18.8.3.288.lambda3,lambda3)
+lambda.18.8.3.lambda4=lambda.analy(pi.core.fit.18.8.3.18.lambda4,pi.core.fit.18.8.3.36.lambda4,
+             pi.core.fit.18.8.3.72.lambda4,pi.core.fit.18.8.3.144.lambda4,
+             pi.core.fit.18.8.3.288.lambda4,lambda4)
+lambda.18.8.3=rbind(lambda.18.8.3.lambda1,lambda.18.8.3.lambda2,lambda.18.8.3.lambda3,lambda.18.8.3.lambda4)
+
+lambda.16.12.5.lambda1=lambda.analy(pi.core.fit.16.12.5.24.lambda1,pi.core.fit.16.12.5.48.lambda1,
+             pi.core.fit.16.12.5.96.lambda1,pi.core.fit.16.12.5.192.lambda1,
+             pi.core.fit.16.12.5.384.lambda1,lambda1)
+lambda.16.12.5.lambda2=lambda.analy(pi.core.fit.16.12.5.24.lambda2,pi.core.fit.16.12.5.48.lambda2,
+             pi.core.fit.16.12.5.96.lambda2,pi.core.fit.16.12.5.192.lambda2,
+             pi.core.fit.16.12.5.384.lambda2,lambda2)
+lambda.16.12.5.lambda3=lambda.analy(pi.core.fit.16.12.5.24.lambda3,pi.core.fit.16.12.5.48.lambda3,
+             pi.core.fit.16.12.5.96.lambda3,pi.core.fit.16.12.5.192.lambda3,
+             pi.core.fit.16.12.5.384.lambda3,lambda3)
+lambda.16.12.5.lambda4=lambda.analy(pi.core.fit.16.12.5.24.lambda4,pi.core.fit.16.12.5.48.lambda4,
+             pi.core.fit.16.12.5.96.lambda4,pi.core.fit.16.12.5.192.lambda4,
+             pi.core.fit.16.12.5.384.lambda4,lambda4)
+lambda.16.12.5=rbind(lambda.16.12.5.lambda1,lambda.16.12.5.lambda2,lambda.16.12.5.lambda3,lambda.16.12.5.lambda4)
+
+lambda.18.8.5.lambda1=lambda.analy(pi.core.fit.18.8.5.18.lambda1,pi.core.fit.18.8.5.36.lambda1,
+             pi.core.fit.18.8.5.72.lambda1,pi.core.fit.18.8.5.144.lambda1,
+             pi.core.fit.18.8.5.288.lambda1,lambda1)
+lambda.18.8.5.lambda2=lambda.analy(pi.core.fit.18.8.5.18.lambda2,pi.core.fit.18.8.5.36.lambda2,
+             pi.core.fit.18.8.5.72.lambda2,pi.core.fit.18.8.5.144.lambda2,
+             pi.core.fit.18.8.5.288.lambda2,lambda2)
+lambda.18.8.5.lambda3=lambda.analy(pi.core.fit.18.8.5.18.lambda3,pi.core.fit.18.8.5.36.lambda3,
+             pi.core.fit.18.8.5.72.lambda3,pi.core.fit.18.8.5.144.lambda3,
+             pi.core.fit.18.8.5.288.lambda3,lambda3)
+lambda.18.8.5.lambda4=lambda.analy(pi.core.fit.18.8.5.18.lambda4,pi.core.fit.18.8.5.36.lambda4,
+             pi.core.fit.18.8.5.72.lambda4,pi.core.fit.18.8.5.144.lambda4,
+             pi.core.fit.18.8.5.288.lambda4,lambda4)
+lambda.18.8.5=rbind(lambda.18.8.5.lambda1,lambda.18.8.5.lambda2,lambda.18.8.5.lambda3,lambda.18.8.5.lambda4)
+
+lambda.16.12.3
+lambda.18.8.3
+lambda.16.12.5
+lambda.18.8.5
+```
+
+
+# C Consistency for KMLE
+
+
+```{r}
+### Consistency of KMLE with respect to C
+### In fact, this is given by ||C-I||/||C|| for true C
+
+library(RSpectra)
+load("./numerical.simul_picore/para.16.12.3.rds")
+load("./numerical.simul_picore/para.18.8.3.rds")
+load("./numerical.simul_picore/para.16.12.5.rds")
+load("./numerical.simul_picore/para.18.8.5.rds")
+
+## (p1,p2,r)=(16,12,3)
+A=para.16.12.3$A; A.sig=svds(A,1)$d
+(A.sig^2*0.8-0.8)/(A.sig^2*0.8+0.2)
+(A.sig^2*0.6-0.6)/(A.sig^2*0.6+0.4)
+(A.sig^2*0.4-0.4)/(A.sig^2*0.4+0.6)
+(A.sig^2*0.2-0.2)/(A.sig^2*0.2+0.8)
+
+## (p1,p2,r)=(18,8,3)
+A=para.18.8.3$A; A.sig=svds(A,1)$d
+(A.sig^2*0.8-0.8)/(A.sig^2*0.8+0.2)
+(A.sig^2*0.6-0.6)/(A.sig^2*0.6+0.4)
+(A.sig^2*0.4-0.4)/(A.sig^2*0.4+0.6)
+(A.sig^2*0.2-0.2)/(A.sig^2*0.2+0.8)
+
+## (p1,p2,r)=(16,12,5)
+A=para.16.12.5$A; A.sig=svds(A,1)$d
+(A.sig^2*0.8-0.8)/(A.sig^2*0.8+0.2)
+(A.sig^2*0.6-0.6)/(A.sig^2*0.6+0.4)
+(A.sig^2*0.4-0.4)/(A.sig^2*0.4+0.6)
+(A.sig^2*0.2-0.2)/(A.sig^2*0.2+0.8)
+
+## (p1,p2,r)=(18,8,5)
+A=para.18.8.5$A; A.sig=svds(A,1)$d
+(A.sig^2*0.8-0.8)/(A.sig^2*0.8+0.2)
+(A.sig^2*0.6-0.6)/(A.sig^2*0.6+0.4)
+(A.sig^2*0.4-0.4)/(A.sig^2*0.4+0.6)
+(A.sig^2*0.2-0.2)/(A.sig^2*0.2+0.8)
+
+```
+
